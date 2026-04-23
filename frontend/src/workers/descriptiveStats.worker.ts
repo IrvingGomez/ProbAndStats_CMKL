@@ -354,7 +354,7 @@ const descriptiveStatsWorker = {
     const iqrV = q3v - q1v
     const madV = mad(s)
     const aadV = aad(data)
-    rows.push({ category: 'Dispersion', measure: 'IQR (Q75 − Q25)', value: iqrV, consistencyCorr: iqrV / (2 * NORM_PPF_75), robust: true })
+    rows.push({ category: 'Dispersion', measure: 'IQR (Q75 - Q25)', value: iqrV, consistencyCorr: iqrV / (2 * NORM_PPF_75), robust: true, advancedId: 'iqr' })
     rows.push({ category: 'Dispersion', measure: 'MAD (Median Abs Dev)', value: madV, consistencyCorr: madV / NORM_PPF_75, robust: true, advancedId: 'mad' })
     rows.push({ category: 'Dispersion', measure: 'AAD (Mean Abs Dev)', value: aadV, consistencyCorr: aadV * Math.sqrt(Math.PI / 2), robust: false, advancedId: 'aad' })
 
@@ -387,8 +387,8 @@ const descriptiveStatsWorker = {
     })
     rows.push({
       category: 'Shape',
-      measure: 'Kurtosis excess (k-statistic)',
-      value: kurtosisUnbiased(data),
+      measure: 'Kurtosis (k-statistic)',
+      value: kurtosisUnbiased(data) + 3,
       consistencyCorr: null,
       robust: false,
       advancedId: 'kurtosis',
@@ -434,3 +434,4 @@ export type DescriptiveStatsWorker = typeof descriptiveStatsWorker
 export { descriptiveStatsWorker }
 
 Comlink.expose(descriptiveStatsWorker)
+

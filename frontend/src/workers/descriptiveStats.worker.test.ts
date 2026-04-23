@@ -135,7 +135,7 @@ describe('CoV (σ/μ)', () => {
 describe('Skewness', () => {
   it('computes correctly for varied data', () => {
     const { rows } = compute([1, 2, 3, 4, 100]) // right-skewed
-    const row = getRow(rows, 'Skewness (biased)')
+    const row = getRow(rows, 'Skewness (k-statistic)')
     expect(row).toBeDefined()
     expect(row.value).not.toBeNull()
     expect(typeof row.value).toBe('number')
@@ -144,7 +144,7 @@ describe('Skewness', () => {
 
   it('returns NaN-equivalent (null/NaN value) and warns for constant data', () => {
     const { rows } = compute([5, 5, 5, 5, 5])
-    const row = getRow(rows, 'Skewness (biased)')
+    const row = getRow(rows, 'Skewness (k-statistic)')
     expect(row).toBeDefined()
     expect(row.warning).toMatch(/identical/)
     // value is NaN (JS NaN, not null — the function returns NaN when std=0)
@@ -157,7 +157,7 @@ describe('Skewness', () => {
 describe('Kurtosis', () => {
   it('computes correctly for normal-ish data', () => {
     const { rows } = compute([1, 2, 3, 4, 5, 6, 7, 8])
-    const row = getRow(rows, 'Kurtosis excess (biased)')
+    const row = getRow(rows, 'Kurtosis (k-statistic)')
     expect(row).toBeDefined()
     expect(typeof row.value).toBe('number')
     expect(row.warning).toBeUndefined()
@@ -165,7 +165,7 @@ describe('Kurtosis', () => {
 
   it('warns for constant data', () => {
     const { rows } = compute([7, 7, 7, 7, 7])
-    const row = getRow(rows, 'Kurtosis excess (biased)')
+    const row = getRow(rows, 'Kurtosis (k-statistic)')
     expect(row).toBeDefined()
     expect(row.warning).toMatch(/identical/)
   })
@@ -189,3 +189,5 @@ describe('Warning propagation', () => {
     expect(measures).toContain('Harmonic Mean')
   })
 })
+
+

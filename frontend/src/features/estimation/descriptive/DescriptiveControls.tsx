@@ -147,10 +147,10 @@ const ADVANCED_STATS_GROUPS = [
       { id: 'variance_0', label: 'Variance (ddof=0)' },
       { id: 'variance_1', label: 'Variance (ddof=1)' },
       { id: 'std_dev_0',  label: 'Std Dev (ddof=0)' },
+      { id: 'iqr',        label: 'IQR' },
       { id: 'range',      label: 'Range' },
       { id: 'mad',        label: 'MAD (Median Abs Dev)' },
       { id: 'aad',        label: 'AAD (Mean Abs Dev)' },
-      { id: 'cov',        label: 'CoV (σ/μ)' },
     ],
   },
   {

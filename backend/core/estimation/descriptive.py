@@ -157,12 +157,8 @@ def compute_descriptive_statistics(
     # ----------------------------------------------------------------
 
     rows.extend([
-        ["Shape", "Skewness (central moments)", skew(x), np.nan, 0],
         ["Shape", "Skewness (k-statistic)", skew(x, bias=False), np.nan, 0],
-        ["Shape", "Kurtosis (central moments)", kurtosis(x, fisher=False), np.nan, 0],
         ["Shape", "Kurtosis (k-statistic)", kurtosis(x, fisher=False, bias=False), np.nan, 0],
-        ["Shape", "Excess Kurtosis (central moments)", kurtosis(x, fisher=False) - 3, np.nan, 0],
-        ["Shape", "Excess Kurtosis (k-statistic)", kurtosis(x, fisher=False, bias=False) - 3, np.nan, 0],
     ])
 
     # ----------------------------------------------------------------
@@ -179,3 +175,4 @@ def compute_descriptive_statistics(
             "Robust",
         ],
     )
+

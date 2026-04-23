@@ -48,15 +48,12 @@ def _advanced_id(measure: str) -> str | None:
         "Variance (ddof=0)":  "variance_0",
         "Variance (ddof=1)":  "variance_1",
         "Std (ddof=0)":       "std_dev_0",
+        "IQR":                "iqr",
         "Range":              "range",
         "MAD":                "mad",
         "AAD":                "aad",
-        "Skewness (central moments)": "skewness",
         "Skewness (k-statistic)":     "skewness",
-        "Kurtosis (central moments)":        "kurtosis",
         "Kurtosis (k-statistic)":            "kurtosis",
-        "Excess Kurtosis (central moments)": "kurtosis",
-        "Excess Kurtosis (k-statistic)":     "kurtosis",
     }.get(measure)
 
 
@@ -161,3 +158,4 @@ def calculate_descriptive(df: pd.DataFrame, req: DescriptiveRequest) -> Descript
         histogram=histogram,
         boxData=boxData
     )
+

@@ -107,7 +107,7 @@ function generateInterpretation(s: DescriptiveSummary, result: DescriptiveResult
   const { n, mean, median, std, iqr } = s
 
   const skewRow = result.rows.find((r) => r.measure.includes('Skewness (k-statistic)'))
-  const kurtRow = result.rows.find((r) => r.measure.includes('Kurtosis excess (k-statistic)'))
+  const kurtRow = result.rows.find((r) => r.measure.includes('Kurtosis (k-statistic)'))
   const skew = skewRow?.value ?? null
   const kurt = kurtRow?.value ?? null
 
@@ -118,20 +118,15 @@ function generateInterpretation(s: DescriptiveSummary, result: DescriptiveResult
     else shape.push(`Left-skewed (skewness = ${skew.toFixed(3)}): long tail toward lower values.`)
   }
   if (kurt !== null && !isNaN(kurt)) {
-    if (kurt > 1) shape.push(`Leptokurtic (excess kurtosis = ${kurt.toFixed(3)}): heavier tails than Normal.`)
-    else if (kurt < -1) shape.push(`Platykurtic (excess kurtosis = ${kurt.toFixed(3)}): lighter tails than Normal.`)
-    else shape.push(`Mesokurtic (excess kurtosis ≈ ${kurt.toFixed(3)}): tails similar to Normal.`)
+    const excessKurt = kurt - 3
+    if (excessKurt > 1) shape.push(`Leptokurtic (excess kurtosis = ${excessKurt.toFixed(3)}): heavier tails than Normal.`)
+    else if (excessKurt < -1) shape.push(`Platykurtic (excess kurtosis = ${excessKurt.toFixed(3)}): lighter tails than Normal.`)
+    else shape.push(`Mesokurtic (excess kurtosis � ${excessKurt.toFixed(3)}): tails similar to Normal.`)
   }
 
   const spread: string[] = []
   spread.push(`Standard deviation covers ±1σ ≈ [${(mean - std).toFixed(3)}, ${(mean + std).toFixed(3)}].`)
   spread.push(`IQR = ${iqr.toFixed(3)} captures the middle 50% of the data.`)
-  const covRow = result.rows.find((r) => r.measure.includes('CoV'))
-  if (covRow?.value != null && !isNaN(covRow.value)) {
-    const pct = (covRow.value * 100).toFixed(1)
-    spread.push(`Coefficient of Variation = ${pct}% (${covRow.value < 0.15 ? 'low' : covRow.value < 0.35 ? 'moderate' : 'high'} relative dispersion).`)
-  }
-
   const center: string[] = []
   const diff = mean - median
   if (Math.abs(diff) < 0.01 * Math.max(Math.abs(mean), Math.abs(median), 0.001)) {
@@ -162,15 +157,11 @@ function generateNarrative(
   // Extract optional stats
   const hasSkewness = config.advancedStats.includes('skewness')
   const hasKurtosis = config.advancedStats.includes('kurtosis')
-  const hasCov = config.advancedStats.includes('cov')
 
   const skewRow = result.rows.find(r => r.measure.includes('Skewness (k-statistic)'))
-  const kurtRow = result.rows.find(r => r.measure.includes('Kurtosis excess (k-statistic)'))
-  const covRow = result.rows.find(r => r.measure.includes('CoV'))
-
+  const kurtRow = result.rows.find(r => r.measure.includes('Kurtosis (k-statistic)'))
   const skew = hasSkewness && skewRow?.value != null && !isNaN(skewRow.value) ? skewRow.value : null
   const kurt = hasKurtosis && kurtRow?.value != null && !isNaN(kurtRow.value) ? kurtRow.value : null
-  const cov = hasCov && covRow?.value != null && !isNaN(covRow.value) && mean > 0 ? covRow.value : null
 
   const outlierCount = result.boxData.outliers.length
   const meanMedianRelDiff = Math.abs(mean - median) / Math.max(Math.abs(mean), Math.abs(median), 0.001)
@@ -261,14 +252,6 @@ function generateNarrative(
     `Values typically fall within one standard deviation of the mean, spanning roughly ${fmt(mean - std)} to ${fmt(mean + std)}. The interquartile range (middle 50%) covers ${fmt(iqr)} units.`
   )
 
-  if (cov !== null) {
-    const pct = (cov * 100).toFixed(1)
-    const label = cov < 0.15 ? 'low' : cov < 0.35 ? 'moderate' : 'high'
-    spreadParas.push(
-      `The Coefficient of Variation is ${pct}%, indicating ${label} relative variability compared to the mean.`
-    )
-  }
-
   if (outlierCount > 0) {
     spreadParas.push(
       `The box plot identifies ${outlierCount} value(s) beyond the 1.5x IQR fences, flagged as potential outliers.`
@@ -280,25 +263,15 @@ function generateNarrative(
   }
 
   let spreadSoWhat: SoWhat
-  if (cov !== null && cov > 0.35) {
+  if (outlierCount >= 3) {
     spreadSoWhat = {
       severity: 'action',
-      text: 'High relative variability (CoV > 35%). The mean alone is a poor summary -- always report a spread measure alongside it. Check whether the data contains distinct subgroups.',
-    }
-  } else if (outlierCount >= 3) {
-    spreadSoWhat = {
-      severity: 'action',
-      text: `${outlierCount} outliers detected. Investigate whether these are data errors, unusual events, or a sign that your data has multiple subgroups.`,
-    }
-  } else if (cov !== null && cov > 0.15) {
-    spreadSoWhat = {
-      severity: 'caution',
-      text: 'Moderate variability. The data has meaningful spread -- predictions based on the mean alone will have notable uncertainty.',
+      text: `${outlierCount} outliers detected. Investigate whether these are data errors, unusual events, or a sign that your data has multiple subgroups.`, 
     }
   } else if (outlierCount > 0) {
     spreadSoWhat = {
       severity: 'caution',
-      text: `${outlierCount} mild outlier(s) detected. Worth checking, but not necessarily problematic.`,
+      text: `${outlierCount} mild outlier(s) detected. Worth checking, but not necessarily problematic.`, 
     }
   } else {
     spreadSoWhat = {
@@ -310,7 +283,7 @@ function generateNarrative(
   // ── Shape: "What shape?" ──
 
   const shapeParas: string[] = []
-  let shapeSoWhat: SoWhat
+  let shapeSoWhat: SoWhat = { severity: 'info', text: 'Shape interpretation unavailable.' }
 
   if (skew !== null) {
     // Full mode with skewness
@@ -331,19 +304,19 @@ function generateNarrative(
         `The distribution is heavily ${dir}-skewed (skewness = ${fmt(skew)}). A long tail of ${dir === 'right' ? 'high' : 'low'} values pulls the mean well ${meanRel} the median. Standard parametric methods that assume normality may be unreliable.`
       )
     }
-
     if (kurt !== null) {
-      if (kurt > 1) {
+      const excessKurt = kurt - 3
+      if (excessKurt > 1) {
         shapeParas.push(
-          `The tails are heavier than a Normal distribution (excess kurtosis = ${fmt(kurt)}), meaning extreme values are more likely than you might expect.`
+          `The tails are heavier than a Normal distribution (excess kurtosis = ${fmt(excessKurt)}), meaning extreme values are more likely than you might expect.`
         )
-      } else if (kurt < -1) {
+      } else if (excessKurt < -1) {
         shapeParas.push(
-          `The tails are lighter than a Normal distribution (excess kurtosis = ${fmt(kurt)}), with values more concentrated near the center.`
+          `The tails are lighter than a Normal distribution (excess kurtosis = ${fmt(excessKurt)}), with values more concentrated near the center.`
         )
       } else {
         shapeParas.push(
-          `The tail behavior is close to Normal (excess kurtosis = ${fmt(kurt)}).`
+          `The tail behavior is close to Normal (excess kurtosis = ${fmt(excessKurt)}).`
         )
       }
     }
@@ -365,7 +338,6 @@ function generateNarrative(
         text: 'The distribution looks reasonably symmetric. Standard statistical methods should work well here.',
       }
     }
-  } else {
     // Simple mode -- no skewness stat available
     if (meanMedianRelDiff < 0.01) {
       shapeParas.push(
@@ -520,15 +492,15 @@ export default function DescriptiveNotebook({
           )}
           <div>
             <p className="text-[var(--color-text-muted)] font-sans not-italic text-[10px] mb-0.5">MAD</p>
-            MAD = median(|xᵢ − median(x)|)
+            MAD = median(|x - median(x)|)
           </div>
           <div>
             <p className="text-[var(--color-text-muted)] font-sans not-italic text-[10px] mb-0.5">Skewness (Fisher)</p>
-            g₁ = m₃ / m₂^(3/2)
+            g1 = m3 / m2^(3/2)
           </div>
           <div>
-            <p className="text-[var(--color-text-muted)] font-sans not-italic text-[10px] mb-0.5">Kurtosis (excess)</p>
-            g₂ = m₄ / m₂² − 3
+            <p className="text-[var(--color-text-muted)] font-sans not-italic text-[10px] mb-0.5">Kurtosis</p>
+            g2 = m4 / m2^2
           </div>
         </div>
       </details>
@@ -536,3 +508,4 @@ export default function DescriptiveNotebook({
     </div>
   )
 }
+
