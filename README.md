@@ -21,17 +21,18 @@ Just as the mythical giant **Thotsakan (ทศกัณฐ์)** has 10 faces an
 | Module | Description | Status |
 |--------|-------------|--------|
 | **Home** | Landing page with philosophy and navigation | ✅ Complete |
-| **Data Lab** | CSV upload, column inspection, filtering, and session management | ✅ Complete |
+| **Data Lab** | CSV upload, column inspection, and filtering | 🚧 Frontend done; backend session upload not yet wired |
 | **12 Distributions** | Interactive PMF / PDF / CDF for Normal, Binomial, Poisson, Exponential, and 8 more | ✅ Complete |
 | **Descriptive Statistics** | Mean, median, mode, variance, skewness, kurtosis, box plots, histograms | ✅ Complete |
-| **Graphical Analysis** | Histogram, ECDF, KDE, PMF, and Normal overlay visualizations | ✅ Complete |
+| **Normal PDF / CI** | Interactive normal curve with confidence-interval visualization | ✅ Complete |
 | **Statistical Inference** | Confidence intervals, prediction intervals, and confidence regions | ✅ Complete |
-| **Hypothesis Testing** | Z-test, t-test, chi-square, ANOVA — with visual rejection regions | 🚧 In Progress |
-| **Linear Regression** | OLS, diagnostics, residual plots | 🚧 In Progress |
+| **Graphical Analysis** | Histogram, ECDF, KDE, PMF, and Normal overlay visualizations | 🚧 Backend done; frontend not yet wired |
+| **Hypothesis Testing** | Z-test, t-test, chi-square, ANOVA — with visual rejection regions | 📋 Planned |
+| **Linear Regression** | OLS, diagnostics, residual plots | 📋 Planned |
 
 ### Key Interactions
 
-- **Slider → Instant Feedback**: Drag a parameter slider and the chart updates in <100ms (JS approximation), then silently swaps in the Python-accurate result ~200ms later.
+- **Slider → Authoritative Feedback**: Drag a parameter slider; after a ~250ms debounce the backend computes the result and the chart re-renders. In-flight requests are cancelled (`AbortController`) so only the latest answer lands.
 - **Budget Constraints**: Real science costs money — simulations can impose sample budgets so students learn trade-offs.
 - **Visual-First**: P-values and test statistics appear *after* the student sees the rejection region light up on the graph.
 
@@ -39,7 +40,7 @@ Just as the mythical giant **Thotsakan (ทศกัณฐ์)** has 10 faces an
 
 ## 🏗 Architecture
 
-**Hybrid "Thin Client + Authoritative Server"** — the best of both worlds:
+**Zero Frontend Math** — the React frontend renders; the Python backend computes. There is no JS approximation layer: `core/` is the only place where statistics are calculated.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -52,8 +53,8 @@ Just as the mythical giant **Thotsakan (ทศกัณฐ์)** has 10 faces an
 │         │               ▲                    ▲              │
 │         ▼               │                    │              │
 │  ┌──────────────────────┴────────────────────┘              │
-│  │  Feature Hooks (useDescriptiveStats, useNormalPDF, ...)  │
-│  │  → JS instant approximation + debounced API call         │
+│  │  Feature Hooks (useDistribution, useNormalPDF, ...)      │
+│  │  → debounced API calls + AbortController cancellation    │
 │  └──────────────────────────────────────────────────────────│
 │                          │  HTTP / JSON                      │
 └──────────────────────────┼──────────────────────────────────┘
@@ -72,7 +73,7 @@ Just as the mythical giant **Thotsakan (ทศกัณฐ์)** has 10 faces an
 ```
 
 **Why this split?**
-- The **frontend** gives students the "alive" feel — sliders respond instantly.
+- The **frontend** gives students the "alive" feel — debounced requests with loading skeletons keep sliders responsive without ever computing locally.
 - The **backend** is the mathematical authority — the professor reads `core/` and verifies correctness directly.
 - `core/` has **zero dependencies** on web frameworks — pure scipy/numpy/statsmodels.
 
@@ -81,7 +82,7 @@ Just as the mythical giant **Thotsakan (ทศกัณฐ์)** has 10 faces an
 ## 📁 Project Structure
 
 ```
-ThotsakanStatistics/
+.
 ├── frontend/                          # React + Vite + TypeScript
 │   └── src/
 │       ├── api/                       # Typed fetch client for backend
@@ -91,39 +92,41 @@ ThotsakanStatistics/
 │       │   ├── probability/common/    # 12 distributions (PMF/PDF/CDF)
 │       │   └── estimation/
 │       │       ├── descriptive/       # Statistics tables & charts
-│       │       └── inference/         # CI visualization
+│       │       ├── inference/         # CI / PI / confidence regions
+│       │       └── graphical/         # Graphical analysis (in progress)
 │       ├── components/                # Reusable UI atoms (DualInput, etc.)
 │       ├── context/                   # Global state (DataContext)
-│       ├── hooks/                     # Computation + API orchestration
+│       ├── hooks/                     # API orchestration hooks
 │       ├── layout/                    # LabBench 3-panel system
 │       └── utils/                     # Export helpers, file parsing
 │
 ├── backend/                           # FastAPI + Python
 │   ├── core/                          # Pure math (professor-verified)
 │   │   ├── data_stats.py
+│   │   ├── probability/               # Common distributions, normal PDF
 │   │   ├── estimation/
 │   │   │   ├── descriptive.py
 │   │   │   ├── graphical_analysis.py
 │   │   │   └── inference/             # CI, PI, estimators, likelihood
-│   │   ├── hypothesis_tests.py
-│   │   └── linear_regression.py
+│   │   ├── hypothesis_testing/        # (stub — planned)
+│   │   └── linear_regression/         # (stub — planned)
 │   ├── services/                      # Orchestration layer
 │   ├── api/
 │   │   ├── routes/                    # FastAPI endpoints
 │   │   ├── schemas/                   # Pydantic request/response models
 │   │   └── deps.py                    # Shared dependencies
-│   ├── sessions/store.py             # In-memory session store + TTL
-│   └── main.py                       # App entry point
+│   ├── sessions/store.py              # In-memory session store + TTL
+│   ├── tests/                         # pytest suite
+│   └── main.py                        # App entry point
 │
-├── doc/                               # Design docs & specifications
-│   ├── DESIGN_PROPOSAL.md
-│   ├── identity.md                    # Brand philosophy & UX pillars
-│   ├── migration_plan.md             # Gradio → React+FastAPI roadmap
-│   └── ...
-│
-├── ThotsakanStatistics/               # Original Gradio app (READ-ONLY reference)
-└── Try_reflex/                        # Legacy Reflex prototype (READ-ONLY)
+└── doc/                               # Design docs & specifications
+    ├── DESIGN_PROPOSAL.md
+    ├── identity.md                    # Brand philosophy & UX pillars
+    ├── migration_plan.md              # Gradio → React+FastAPI roadmap
+    └── ...
 ```
+
+> The original Gradio app (`ThotsakanStatistics/`) and the legacy Reflex prototype (`Try_reflex/`) are kept locally as read-only references during migration, but are not tracked in this branch.
 
 ---
 
@@ -138,9 +141,11 @@ ThotsakanStatistics/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/IrvingGomez/ThotsakanStatistics.git
+git clone -b react-migration https://github.com/IrvingGomez/ThotsakanStatistics.git
 cd ThotsakanStatistics
 ```
+
+> **Note:** the React + FastAPI app lives on the `react-migration` branch. The `main` branch still holds the original Gradio application.
 
 ### 2. Install dependencies
 
@@ -235,7 +240,8 @@ Every feature tab plugs into a shared 3-panel layout:
 
 | Decision | Rationale |
 |----------|-----------|
-| **JS approximation + Python authority** | <100ms slider feedback AND verifiable math |
+| **Zero frontend math** | All statistics computed in Python `core/` — one verifiable source of truth, no drift between JS and scipy |
+| **Debounce + AbortController** | Sliders stay responsive: stale in-flight requests are cancelled, only the latest result renders |
 | **In-memory session store** | No database needed for a teaching tool; TTL auto-cleanup keeps it simple |
 | **`core/` is framework-free** | Professor reads raw Python + scipy to verify formulas |
 | **Plotly (not Matplotlib)** | Hover, zoom, pan are mandatory for a lab — static images are forbidden |
@@ -248,7 +254,7 @@ Every feature tab plugs into a shared 3-panel layout:
 
 | Interaction | Target |
 |-------------|--------|
-| Slider → JS approximation render | < 100ms |
+| Slider → debounce fires | ~250ms after last move |
 | Backend authoritative result | < 500ms (typical), < 2s (bootstrap) |
 | Tab switch | < 200ms (lazy loaded) |
 | Initial page load | < 2s |

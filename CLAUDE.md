@@ -215,14 +215,14 @@ Porting features from `ThotsakanStatistics/` (Gradio) to the React + FastAPI hyb
 | Feature | Frontend | Backend | Status |
 |---|---|---|---|
 | Home tab | Done | N/A | Complete |
-| Data tab | Done | Pending (session store) | Partial |
+| Data tab | Done (local parsing) | Done (upload route + session store) | Partial — frontend not yet wired to backend sessions |
 | 12 common distributions | Done (API) | Done | Complete |
 | Descriptive statistics | Done (API) | Done | Complete |
 | Normal PDF / CI | Done (API) | Done | Complete |
-| Inference (CI/PI/regions) | Not started | Pending | Not started |
-| Graphical analysis | Not started | Pending | Not started |
-| Hypothesis testing | Not started | Pending | Not started |
-| Linear regression | Not started | Pending | Not started |
+| Inference (CI/PI/regions) | Done (API) | Done | Complete |
+| Graphical analysis | Hook + API client exist, not wired into App | Done | Partial |
+| Hypothesis testing | Not started | Stub (`core/hypothesis_testing/` empty) | Not started |
+| Linear regression | Not started | Stub (`core/linear_regression/` empty) | Not started |
 
 ## Documentation
 
