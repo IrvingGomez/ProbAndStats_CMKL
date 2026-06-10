@@ -33,7 +33,6 @@ venv/
 venv.bak/
 ENV/
 env.bak/
-*/__pycache__/
 
 # Testing
 coverage/
@@ -51,9 +50,6 @@ coverage.xml
 pytestdebug.log
 
 # React / Node build
-build/
-dist/
-out/
 .next/
 
 # Logs
@@ -76,6 +72,7 @@ Thumbs.db
 # IDE / Editors
 .idea/
 .vscode/
+.obsidian/
 *.swp
 *.swo
 *~
@@ -84,15 +81,15 @@ Thumbs.db
 .cproject
 .settings/
 
-# Claude Code (AI assistant config — not project code)
+# AI assistant config / output (not project code)
 .claude/
 .agent/
+graphify-out/
 
 # Temp / scratch files
 test_data.csv
+doc/*.csv
 
-# Read-only reference folders (not part of the React migration)
+# Read-only reference folders (local only, not part of the React migration)
 ThotsakanStatistics/
 Try_reflex/
-doc/
-.agent/
