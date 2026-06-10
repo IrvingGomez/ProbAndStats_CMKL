@@ -14,29 +14,10 @@ type Mode = 'pdf' | 'cdf'
 
 interface NormalPDFObservationProps {
   params: NormalPDFParams
-  result: NormalPDFResult
+  result: NormalPDFResult | null
   mode: Mode
 }
 
-function buildCDF(xValues: number[], mean: number, std: number): number[] {
-  return xValues.map((x) => {
-    // Approximation of the normal CDF using error function
-    const z = (x - mean) / (std * Math.sqrt(2))
-    return 0.5 * (1 + erf(z))
-  })
-}
-
-function erf(x: number): number {
-  const t = 1 / (1 + 0.3275911 * Math.abs(x))
-  const poly =
-    t * (0.254829592 +
-      t * (-0.284496736 +
-        t * (1.421413741 +
-          t * (-1.453152027 +
-            t * 1.061405429))))
-  const result = 1 - poly * Math.exp(-x * x)
-  return x >= 0 ? result : -result
-}
 
 const LAYOUT_BASE = {
   autosize: true,
@@ -60,10 +41,14 @@ const LAYOUT_BASE = {
 }
 
 export default function NormalPDFObservation({ params, result, mode }: NormalPDFObservationProps) {
-  const { xValues, yValues, ciLow, ciHigh, shadeX, shadeY } = result
+  const xValues = result?.xValues ?? []
+  const yValues = result?.yValues ?? []
+  const cdfValues = result?.cdfValues ?? []
+  const ciLow = result?.ciLow ?? 0
+  const ciHigh = result?.ciHigh ?? 0
+  const shadeX = result?.shadeX ?? []
+  const shadeY = result?.shadeY ?? []
   const { mean, std, n, alpha } = params
-
-  const cdfValues = useMemo(() => buildCDF(xValues, mean, std), [xValues, mean, std])
 
   // ── Export handlers ──────────────────────────────────────────────────────
   const handleExportPNG = useCallback(() => {
@@ -175,6 +160,14 @@ export default function NormalPDFObservation({ params, result, mode }: NormalPDF
       title: mode === 'pdf' ? 'Density' : 'Probability',
     },
   }), [mode, mean, std, n, alpha])
+
+  if (!result) {
+    return (
+      <div className="flex flex-col h-full gap-4 animate-pulse">
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-panel)] h-[380px]" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full gap-4">

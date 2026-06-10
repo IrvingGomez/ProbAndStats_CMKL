@@ -2,7 +2,8 @@ import { DISTRIBUTIONS, type DistResult, type DistParams } from '../../../hooks/
 
 interface CommonDistNotebookProps {
   distParams: DistParams
-  result: DistResult
+  result: DistResult | null
+  isLoading?: boolean
 }
 
 // ─── Formula strings per distribution ────────────────────────────────────────
@@ -86,7 +87,9 @@ export default function CommonDistNotebook({ distParams, result }: CommonDistNot
   const dist = DISTRIBUTIONS.find((d) => d.name === distName)
   const formula = FORMULAS[distName]
 
-  const { theorMean, theorVariance, queryResult } = result
+  const theorMean = result?.theorMean ?? '—'
+  const theorVariance = result?.theorVariance ?? '—'
+  const queryResult = result?.queryResult ?? null
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,7 +120,7 @@ export default function CommonDistNotebook({ distParams, result }: CommonDistNot
               P(X {queryOp} {queryK})
             </span>
             <span className="text-sm font-bold font-mono text-emerald-400">
-              {queryResult.toFixed(4)}
+              {queryResult != null ? queryResult.toFixed(4) : '—'}
             </span>
           </div>
         </div>

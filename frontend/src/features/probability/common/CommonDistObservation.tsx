@@ -13,7 +13,8 @@ const CHART_DIV_ID = 'common-dist-chart'
 
 interface CommonDistObservationProps {
   distParams: DistParams
-  result: DistResult
+  result: DistResult | null
+  isLoading: boolean
 }
 
 const LAYOUT_BASE = {
@@ -45,20 +46,22 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
   }, [slug])
 
   const handleExportCSV = useCallback(() => {
+    if (!result) return
     if (dist?.type === 'discrete') {
       const { ks = [], probs = [], cumProbs = [] } = result
       const rows: (string | number)[][] = [['k', 'P(X=k)', 'P(X<=k)']]
-      ks.forEach((k, i) => rows.push([k, probs[i] ?? 0, cumProbs[i] ?? 0]))
+      ks.forEach((k: number, i: number) => rows.push([k, probs[i] ?? 0, cumProbs[i] ?? 0]))
       downloadCSV(rows, `${slug}-pmf.csv`)
     } else {
       const { xs = [], ys = [], cdfYs = [] } = result
       const rows: (string | number)[][] = [['x', 'f(x)', 'F(x)']]
-      xs.forEach((x, i) => rows.push([x, ys[i] ?? 0, cdfYs[i] ?? 0]))
+      xs.forEach((x: number, i: number) => rows.push([x, ys[i] ?? 0, cdfYs[i] ?? 0]))
       downloadCSV(rows, `${slug}-pdf.csv`)
     }
   }, [dist, result, slug])
 
   const handleExportPDF = useCallback(async () => {
+    if (!result) return
     const meanStr = typeof result.theorMean === 'number' ? result.theorMean.toFixed(4) : String(result.theorMean)
     const varStr  = typeof result.theorVariance === 'number' ? result.theorVariance.toFixed(4) : String(result.theorVariance)
     const { downloadPDF } = await import('../../../utils/exportPDF')
@@ -78,24 +81,27 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
     })
   }, [distName, dist, queryOp, queryK, result, paramValues, slug])
 
-  const statCards = useMemo(() => [
-    {
-      label: 'Theoretical Mean',
-      value: typeof result.theorMean === 'number' ? result.theorMean.toFixed(3) : String(result.theorMean),
-    },
-    {
-      label: 'Variance',
-      value: typeof result.theorVariance === 'number' ? result.theorVariance.toFixed(3) : String(result.theorVariance),
-    },
-    {
-      label: opLabel(queryOp, queryK, result.queryResult),
-      value: result.queryResult.toFixed(3),
-      highlight: true,
-    },
-  ], [result, queryOp, queryK])
+  const statCards = useMemo(() => {
+    if (!result) return []
+    return [
+      {
+        label: 'Theoretical Mean',
+        value: typeof result.theorMean === 'number' ? result.theorMean.toFixed(3) : String(result.theorMean),
+      },
+      {
+        label: 'Variance',
+        value: typeof result.theorVariance === 'number' ? result.theorVariance.toFixed(3) : String(result.theorVariance),
+      },
+      {
+        label: opLabel(queryOp, queryK, result.queryResult),
+        value: result.queryResult.toFixed(3),
+        highlight: true,
+      },
+    ]
+  }, [result, queryOp, queryK])
 
   const { traces, layout } = useMemo(() => {
-    if (!dist) return { traces: [], layout: LAYOUT_BASE }
+    if (!dist || !result) return { traces: [], layout: LAYOUT_BASE }
 
     const kVal = Math.round(queryK)
 
@@ -196,6 +202,19 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
       }
     }
   }, [dist, result, distName, queryOp, queryK, paramValues])
+
+  if (!result) {
+    return (
+      <div className="flex flex-col gap-4 animate-pulse">
+        <div className="grid grid-cols-3 gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-lg p-3 h-20 bg-[var(--color-bg-panel)] border border-[var(--color-border)]" />
+          ))}
+        </div>
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-panel)] h-[380px]" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">

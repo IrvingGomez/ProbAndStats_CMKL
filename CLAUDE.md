@@ -55,17 +55,20 @@ No linting is configured yet (no ESLint/Prettier).
 
 ## Architecture
 
-### The "Thin Client + Authoritative Server" Pattern
+### Zero Frontend Math
 
-For interactive features (slider-driven), the frontend computes an **instant JS approximation** for immediate visual feedback, then fires a debounced request to the Python backend. The backend returns the **authoritative result**, which React swaps in silently. For button-triggered features (regression, hypothesis tests, bootstrap), only the backend computes.
+All statistical computation runs in the Python backend. Hooks call API endpoints; the frontend renders results. Interactive slider-driven features use ~250ms debounced API calls with `AbortController` for stale-response cancellation, and show a loading skeleton during the request.
 
 ```
 User drags slider
-  → JS computes approximate result instantly (renders)
-  → Debounced request fires to Python API (~200ms after last move)
-  → Python returns authoritative result
-  → React replaces approximate with real value
+  → 250ms debounce fires
+  → Previous in-flight request aborted (AbortController)
+  → POST /api/... to Python backend
+  → Python returns result
+  → React renders authoritative result
 ```
+
+**There is no JS approximation layer.** `core/` is the only place where statistics are computed.
 
 ### Backend Architecture
 
@@ -73,12 +76,17 @@ User drags slider
 backend/
 ├── core/                  # Pure math (IDENTICAL to ThotsakanStatistics/core/)
 │   ├── data_stats.py      # Data loading and inspection
+│   ├── probability/
+│   │   ├── common_distributions/  # distributions.py, normal_pdf.py
+│   │   ├── custom_distributions/  # stub
+│   │   └── approximation/         # stub
 │   ├── estimation/
-│   │   ├── descriptive.py
-│   │   ├── graphical_analysis.py
-│   │   └── inference/     # ci_*.py, pi_*.py, estimators, likelihood
-│   ├── hypothesis_tests.py
-│   └── linear_regression.py
+│   │   ├── descriptive.py         # + compute_histogram, compute_boxplot_data
+│   │   ├── graphical_analysis.py  # + compute_graphical_data (JSON output)
+│   │   └── inference/             # ci_*.py, pi_*.py, estimators, likelihood,
+│   │                              #   confidence_regions.py (+ compute_confidence_regions_data)
+│   ├── hypothesis_testing/        # was hypothesis_tests.py
+│   └── linear_regression/         # was linear_regression.py
 │
 ├── services/              # Orchestration (from controllers/)
 │   ├── descriptive.py     # Thin: validate → call core
@@ -103,6 +111,7 @@ backend/
 **Key rules:**
 - `core/` must NOT depend on services, api, or sessions
 - `core/` is kept identical to `ThotsakanStatistics/core/` so the professor can verify the math
+- `services/` must NOT import numpy, scipy, or statsmodels — validate, call core, map schema only
 - Rounding is presentation-level — core keeps full numerical precision
 - Datasets are held server-side in memory, keyed by session ID with TTL auto-cleanup
 
@@ -150,7 +159,7 @@ src/
 ├── context/                         # Global state (DataContext)
 ├── layout/                          # LabBench, Header, Footer, etc.
 ├── utils/                           # Export helpers, file parsing
-└── workers/                         # Web Workers (being replaced by API calls)
+└── workers/                         # (empty — workers deleted, all computation in backend)
 ```
 
 Each feature folder follows the naming convention: `*Controls.tsx`, `*Observation.tsx`, `*Notebook.tsx`. `App.tsx` wires the active tab's three components into `LabBench`.
@@ -159,7 +168,7 @@ Each feature folder follows the naming convention: `*Controls.tsx`, `*Observatio
 
 **Global (DataContext):** `src/context/DataContext.tsx` — `useReducer` managing dataset reference (session ID), filters, column classifications, and display precision. Access via `useData()`.
 
-**Feature-local:** Each tab's computation lives in a dedicated hook (`useNormalPDF`, `useDistribution`, `useDescriptiveStats`). Hooks provide instant JS approximation and orchestrate API calls for authoritative results.
+**Feature-local:** Each tab's computation lives in a dedicated hook (`useNormalPDF`, `useDistribution`). Hooks fire debounced API calls and expose `{ result, isLoading, error }` — no local math.
 
 **API client:** `src/api/` contains typed fetch wrappers. Hooks call these instead of doing heavy math locally.
 
@@ -169,9 +178,8 @@ Each feature folder follows the naming convention: `*Controls.tsx`, `*Observatio
 
 | Hook | What it does |
 |------|-------------|
-| `useDistribution()` | 12 distributions with PMF/PDF/CDF and query operations (JS primary, Python for integrity) |
-| `useNormalPDF()` | Normal curve + CI shading (Beasley-Springer-Moro z-critical) |
-| `useDescriptiveStats()` | Calls backend API (replaces Web Worker) |
+| `useDistribution()` | Calls `/api/probability/compute`; returns `{ result, isLoading, error }` |
+| `useNormalPDF()` | Calls `/api/probability/normal-pdf`; returns `{ result, isLoading, error }` |
 | `useResizablePanel()` | Drag logic for panel width |
 | `useContainerBreakpoint()` | Viewport-based auto-collapse |
 | `useSidebarKeyboard()` | Keyboard shortcuts for sidebar toggle |
@@ -195,8 +203,8 @@ KaTeX for static formula display; MathLive for interactive math input. Custom el
 
 | Interaction | Target |
 |---|---|
-| Slider → JS approximation render | < 100ms |
-| Backend authoritative result | < 500ms (typical), < 2s (bootstrap) |
+| Slider → debounce fires | ~250ms after last move |
+| Backend result (distributions, PDF) | < 500ms (typical), < 2s (bootstrap) |
 | Tab switch | < 200ms (lazy loaded) |
 | Initial page load | < 2s |
 
@@ -208,9 +216,9 @@ Porting features from `ThotsakanStatistics/` (Gradio) to the React + FastAPI hyb
 |---|---|---|---|
 | Home tab | Done | N/A | Complete |
 | Data tab | Done | Pending (session store) | Partial |
-| 12 common distributions | Done (JS) | Pending (integrity) | Partial |
-| Descriptive statistics | Done (Web Worker) | Pending (migrate to API) | Partial |
-| Normal PDF / CI | Done (JS) | Pending (integrity) | Partial |
+| 12 common distributions | Done (API) | Done | Complete |
+| Descriptive statistics | Done (API) | Done | Complete |
+| Normal PDF / CI | Done (API) | Done | Complete |
 | Inference (CI/PI/regions) | Not started | Pending | Not started |
 | Graphical analysis | Not started | Pending | Not started |
 | Hypothesis testing | Not started | Pending | Not started |

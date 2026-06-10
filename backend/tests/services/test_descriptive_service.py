@@ -23,9 +23,10 @@ def test_calculate_descriptive_basic():
     quantiles = [r for r in res.rows if r.category == 'Quantiles']
     assert len(quantiles) == 3 # 0.25, 0.5, 0.75
     
-    # Check Box Data
-    assert res.boxData.min == 10
-    assert res.boxData.max == 50
+    # Check Box Data — whiskers are exact fence values: Q1-1.5*IQR, Q3+1.5*IQR
+    # Dataset: Q1=20, Q3=37.5 (pandas linear interp), IQR=17.5 → fences: -6.25 / 63.75
+    assert res.boxData.whiskerLo == pytest.approx(-6.25)
+    assert res.boxData.whiskerHi == pytest.approx(63.75)
     assert len(res.boxData.outliers) == 0
 
 def test_build_histogram():

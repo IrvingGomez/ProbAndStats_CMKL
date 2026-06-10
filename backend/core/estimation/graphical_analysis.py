@@ -258,3 +258,59 @@ def plot_ecdf(
 
     fig.tight_layout()
     return fig
+
+
+# ── JSON-serializable compute functions (for React/Plotly frontend) ──────────
+
+def compute_histogram_data(data: np.ndarray) -> dict:
+    counts, bin_edges = np.histogram(data, bins='auto')
+    densities, _ = np.histogram(data, bins=bin_edges, density=True)
+    return {"bins": bin_edges.tolist(), "counts": counts.tolist(), "densities": densities.tolist()}
+
+
+def compute_pmf_data(data: np.ndarray) -> dict:
+    values, counts = np.unique(data, return_counts=True)
+    probs = counts / counts.sum()
+    return {"values": values.tolist(), "probs": probs.tolist()}
+
+
+def compute_ecdf_data(data: np.ndarray) -> dict:
+    from statsmodels.distributions.empirical_distribution import ECDF
+    ecdf = ECDF(data)
+    n = len(data)
+    epsilon = np.sqrt(np.log(2 / 0.05) / (2 * n))
+    return {
+        "x": ecdf.x.tolist(),
+        "y": ecdf.y.tolist(),
+        "lower": np.maximum(ecdf.y - epsilon, 0).tolist(),
+        "upper": np.minimum(ecdf.y + epsilon, 1).tolist(),
+    }
+
+
+def compute_kde_data(data: np.ndarray) -> dict:
+    from scipy.stats import gaussian_kde
+    kde = gaussian_kde(data)
+    x_grid = np.linspace(data.min(), data.max(), 500)
+    return {"x": x_grid.tolist(), "y": kde.evaluate(x_grid).tolist()}
+
+
+def compute_normal_density_data(data: np.ndarray, *, is_cdf: bool = False) -> dict:
+    mu, sigma = float(data.mean()), float(data.std(ddof=1))
+    x_grid = np.linspace(data.min(), data.max(), 500)
+    y_grid = norm.cdf(x_grid, mu, sigma) if is_cdf else norm.pdf(x_grid, mu, sigma)
+    return {"x": x_grid.tolist(), "y": y_grid.tolist()}
+
+
+def compute_graphical_data(data: np.ndarray, graph_type: str, add_kde: bool, add_normal: bool) -> dict:
+    response: dict = {}
+    if graph_type == "Histogram":
+        response["histogram_data"] = compute_histogram_data(data)
+    elif graph_type == "PMF":
+        response["pmf_data"] = compute_pmf_data(data)
+    elif graph_type == "ECDF":
+        response["ecdf_data"] = compute_ecdf_data(data)
+    if add_kde and graph_type in ("Histogram", "PMF"):
+        response["kde_curve"] = compute_kde_data(data)
+    if add_normal:
+        response["normal_curve"] = compute_normal_density_data(data, is_cdf=(graph_type == "ECDF"))
+    return response

@@ -8,7 +8,7 @@ interface CommonDistControlsProps {
   paramValues: Record<string, number>
   queryOp: QueryOp
   queryK: number
-  queryResult: number
+  queryResult: number | null
   onModelTypeChange: (t: 'discrete' | 'continuous') => void
   onDistChange: (name: string) => void
   onParamChange: (key: string, value: number) => void
@@ -179,7 +179,7 @@ export default function CommonDistControls({
             P(X {queryOp} {modelType === 'discrete' ? Math.round(queryK) : queryK})
           </p>
           <p className="text-lg font-bold font-mono tabular-nums text-[var(--color-accent)]">
-            {queryResult.toFixed(4)}
+            {queryResult != null ? queryResult.toFixed(4) : '—'}
           </p>
         </div>
       </div>

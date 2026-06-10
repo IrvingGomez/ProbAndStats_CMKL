@@ -1,7 +1,7 @@
 // features/estimation/descriptive/DescriptiveNotebook.tsx
 // Right panel: data story narrative, "so what?" callouts, technical details, bias correction, formulas
 
-import { type DescriptiveResult, type DescriptiveSummary } from '../../../hooks/useDescriptiveStats'
+import { type DescriptiveResult, type DescriptiveSummary } from '../../../api/descriptive'
 import type { DescriptiveConfig } from './DescriptiveControls'
 
 // ─── Narrative types ─────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ function generateInterpretation(s: DescriptiveSummary, result: DescriptiveResult
     const excessKurt = kurt - 3
     if (excessKurt > 1) shape.push(`Leptokurtic (excess kurtosis = ${excessKurt.toFixed(3)}): heavier tails than Normal.`)
     else if (excessKurt < -1) shape.push(`Platykurtic (excess kurtosis = ${excessKurt.toFixed(3)}): lighter tails than Normal.`)
-    else shape.push(`Mesokurtic (excess kurtosis � ${excessKurt.toFixed(3)}): tails similar to Normal.`)
+    else shape.push(`Mesokurtic (excess kurtosis � ${excessKurt.toFixed(3)}): tails similar to Normal.`)
   }
 
   const spread: string[] = []

@@ -31,11 +31,11 @@ class HistogramData(BaseModel):
     counts: List[int]
 
 class BoxData(BaseModel):
-    min: float
+    whiskerLo: float
     q1: float
     median: float
     q3: float
-    max: float
+    whiskerHi: float
     outliers: List[float]
 
 class DescriptiveResponse(BaseModel):

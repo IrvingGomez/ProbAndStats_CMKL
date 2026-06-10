@@ -176,3 +176,37 @@ def compute_descriptive_statistics(
         ],
     )
 
+
+def compute_histogram(series: pd.Series) -> dict:
+    n = len(series)
+    if n < 2:
+        return {"binEdges": [], "counts": []}
+    q1v = series.quantile(0.25)
+    q3v = series.quantile(0.75)
+    iqrV = q3v - q1v
+    data_range = series.max() - series.min()
+    if iqrV == 0:
+        num_bins = int(min(30, np.ceil(np.sqrt(n))))
+    else:
+        bin_width = 2 * (iqrV / np.cbrt(n))
+        num_bins = int(min(50, max(5, np.ceil(data_range / bin_width))))
+    counts, bin_edges = np.histogram(series, bins=num_bins)
+    return {"binEdges": bin_edges.tolist(), "counts": counts.tolist()}
+
+
+def compute_boxplot_data(series: pd.Series) -> dict:
+    q1 = float(series.quantile(0.25))
+    med = float(series.median())
+    q3 = float(series.quantile(0.75))
+    iqr = q3 - q1
+    lower_fence = q1 - 1.5 * iqr
+    upper_fence = q3 + 1.5 * iqr
+    outliers = series[(series < lower_fence) | (series > upper_fence)].tolist()
+    return {
+        "whiskerLo": lower_fence,
+        "q1": q1,
+        "median": med,
+        "q3": q3,
+        "whiskerHi": upper_fence,
+        "outliers": outliers,
+    }

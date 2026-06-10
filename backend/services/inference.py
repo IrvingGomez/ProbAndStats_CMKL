@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 import json
-from scipy.stats import chi2
 
 from api.schemas.inference import InferenceParams, ConfidenceRegionsParams
 
@@ -22,7 +20,7 @@ from core.estimation.inference.pi import (
 )
 
 from core.estimation.inference.estimator_options import available_estimators
-from core.estimation.inference.likelihood import relative_likelihood
+from core.estimation.inference.confidence_regions import compute_confidence_regions_data
 
 def select_distribution(mean_estimator: str, sigma_estimator: str) -> str:
     if mean_estimator == "Sample Mean" and sigma_estimator == "Deviation (1 ddof)":
@@ -125,37 +123,18 @@ def calculate_intervals(data: pd.Series, params: InferenceParams, weights: pd.Se
     return ci_table, pi_table, mean_ci, sigma_ci, median_ci
 
 def calculate_regions(data: pd.Series, params: ConfidenceRegionsParams, weights: pd.Series = None):
-    # Get CIs first
     ci_table, pi_table, mean_ci, sigma_ci, median_ci = calculate_intervals(data, params, weights)
-
     mu_ci = median_ci if params.mu_ci_source == "Median-based CI" else mean_ci
 
-    # Bypassing matplotlib visualization limits
-    probs = params.probs[::-1] # Matches chi2 nesting
-    levels = np.exp(-0.5 * chi2.ppf(probs, 2))
-
-    mu_grid = np.linspace(mu_ci[0] - params.eps_mu[0], mu_ci[1] + params.eps_mu[1], 200)
-    sigma_grid = np.linspace(sigma_ci[0] - params.eps_sigma[0], sigma_ci[1] + params.eps_sigma[1], 200)
-
-    MU, SIGMA = np.meshgrid(mu_grid, sigma_grid)
-
-    sigma_hat = float(np.std(data, ddof=0))
-    mu_hat = float(np.mean(data))
-
-    Z = relative_likelihood(data=data, mu=MU, sigma=SIGMA, sigma_hat=sigma_hat)
-
-    # Convert to JSON primitives for Plotly
-    z_matrix = Z.tolist()
-    
-    return {
-        "z_matrix": z_matrix,
-        "mu_grid": mu_grid.tolist(),
-        "sigma_grid": sigma_grid.tolist(),
-        "mu_hat": mu_hat,
-        "sigma_hat": sigma_hat,
-        "mean_ci": [float(x) for x in mean_ci],
-        "sigma_ci": [float(x) for x in sigma_ci],
-        "probs": probs,
-        "levels": levels.tolist(),
-        "table": ci_table.to_json(orient="records") if params.add_ci_box else None
-    }
+    grid = compute_confidence_regions_data(
+        data=data,
+        mean_ci=mu_ci,
+        sigma_ci=sigma_ci,
+        probs=params.probs,
+        eps_mu=params.eps_mu,
+        eps_sigma=params.eps_sigma,
+    )
+    grid["mean_ci"] = [float(x) for x in mean_ci]
+    grid["sigma_ci"] = [float(x) for x in sigma_ci]
+    grid["table"] = ci_table.to_json(orient="records") if params.add_ci_box else None
+    return grid

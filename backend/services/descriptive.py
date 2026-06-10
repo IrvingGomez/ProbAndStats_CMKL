@@ -1,38 +1,23 @@
-import numpy as np
 import pandas as pd
-from typing import Dict, Any, List
+from typing import List
 
-from core.estimation.descriptive import compute_descriptive_statistics
+from core.estimation.descriptive import (
+    compute_descriptive_statistics,
+    compute_histogram,
+    compute_boxplot_data,
+)
 from api.schemas.descriptive import (
-    DescriptiveRequest, 
-    DescriptiveResponse, 
-    StatRow, 
+    DescriptiveRequest,
+    DescriptiveResponse,
+    StatRow,
     DescriptiveSummary,
     HistogramData,
-    BoxData
+    BoxData,
 )
 
 def build_histogram(series: pd.Series) -> HistogramData:
-    n = len(series)
-    if n < 2:
-        return HistogramData(binEdges=[], counts=[])
-
-    q1v = series.quantile(0.25)
-    q3v = series.quantile(0.75)
-    iqrV = q3v - q1v
-    dataRange = series.max() - series.min()
-
-    if iqrV == 0:
-        numBins = int(min(30, np.ceil(np.sqrt(n))))
-    else:
-        binWidth = 2 * (iqrV / np.cbrt(n))
-        numBins = int(min(50, max(5, np.ceil(dataRange / binWidth))))
-
-    counts, bin_edges = np.histogram(series, bins=numBins)
-    return HistogramData(
-        binEdges=bin_edges.tolist(),
-        counts=counts.tolist()
-    )
+    data = compute_histogram(series)
+    return HistogramData(binEdges=data["binEdges"], counts=data["counts"])
 
 def _advanced_id(measure: str) -> str | None:
     """Map a core measure name to the frontend advancedId, or None for basic stats."""
@@ -130,27 +115,8 @@ def calculate_descriptive(df: pd.DataFrame, req: DescriptiveRequest) -> Descript
     histogram = build_histogram(series)
     
     # 4. Build BoxData
-    q1 = float(series.quantile(0.25))
-    med = float(series.median())
-    q3 = float(series.quantile(0.75))
-    iqr = q3 - q1
-    lower_fence = q1 - 1.5 * iqr
-    upper_fence = q3 + 1.5 * iqr
-    
-    outliers = series[(series < lower_fence) | (series > upper_fence)].tolist()
-    
-    # Whiskers
-    whisker_lo = float(series[series >= lower_fence].min()) if not series[series >= lower_fence].empty else _min
-    whisker_hi = float(series[series <= upper_fence].max()) if not series[series <= upper_fence].empty else _max
-
-    boxData = BoxData(
-        min=whisker_lo,
-        q1=q1,
-        median=med,
-        q3=q3,
-        max=whisker_hi,
-        outliers=outliers
-    )
+    box = compute_boxplot_data(series)
+    boxData = BoxData(**box)
     
     return DescriptiveResponse(
         rows=rows,

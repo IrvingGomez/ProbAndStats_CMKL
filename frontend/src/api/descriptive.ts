@@ -26,7 +26,7 @@ export interface DescriptiveResult {
   summary: DescriptiveSummary
   histogram: HistogramData
   boxData: {
-    min: number; q1: number; median: number; q3: number; max: number
+    whiskerLo: number; q1: number; median: number; q3: number; whiskerHi: number
     outliers: number[]
   }
 }

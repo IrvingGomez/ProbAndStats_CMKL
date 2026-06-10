@@ -136,7 +136,7 @@ export default function App() {
   // ── Estimation / Normal PDF state ──────────────────────────────────────────
   const [normalParams, setNormalParams] = useState<NormalPDFParams>(DEFAULT_PARAMS)
   const [normalMode, setNormalMode] = useState<'pdf' | 'cdf'>('pdf')
-  const normalResult = useNormalPDF(normalParams)
+  const { result: normalResult } = useNormalPDF(activeTab === 'estimation' ? normalParams : null)
 
   // ── Probability / Common Distributions state ───────────────────────────────
   const firstDiscrete = DISTRIBUTIONS.find((d) => d.type === 'discrete')!
@@ -155,7 +155,7 @@ export default function App() {
     queryK: probQueryK,
   }), [probDistName, probParamValues, probQueryOp, probQueryK])
 
-  const probResult = useDistribution(probDistParams)
+  const { result: probResult, isLoading: probLoading } = useDistribution(probDistParams)
 
   function handleDistChange(name: string) {
     const dist = DISTRIBUTIONS.find((d) => d.name === name)!
@@ -192,7 +192,7 @@ export default function App() {
           paramValues={probParamValues}
           queryOp={probQueryOp}
           queryK={probQueryK}
-          queryResult={probResult.queryResult}
+          queryResult={probResult?.queryResult ?? null}
           onModelTypeChange={handleModelTypeChange}
           onDistChange={handleDistChange}
           onParamChange={(key, val) => {
@@ -207,6 +207,7 @@ export default function App() {
           <CommonDistObservation
             distParams={probDistParams}
             result={probResult}
+            isLoading={probLoading}
           />
         </Suspense>
       )
@@ -214,6 +215,7 @@ export default function App() {
         <CommonDistNotebook
           distParams={probDistParams}
           result={probResult}
+          isLoading={probLoading}
         />
       )
     } else {

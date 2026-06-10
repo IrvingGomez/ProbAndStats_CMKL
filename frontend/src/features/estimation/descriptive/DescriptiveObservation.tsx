@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Plot from 'react-plotly.js'
-import { type DescriptiveResult, type StatRow } from '../../../hooks/useDescriptiveStats'
+import { type DescriptiveResult, type StatRow } from '../../../api/descriptive'
 import type { DescriptiveConfig } from './DescriptiveControls'
 
 // ─── Warning Snackbar ─────────────────────────────────────────────────────────
@@ -265,10 +265,9 @@ function DescriptiveCharts({ result, colName }: { result: DescriptiveResult; col
       q1: [boxData.q1],
       median: [boxData.median],
       q3: [boxData.q3],
-      lowerfence: [boxData.min],
-      upperfence: [boxData.max],
+      lowerfence: [boxData.whiskerLo],
+      upperfence: [boxData.whiskerHi],
       mean: [result.summary.mean],
-      x: boxData.outliers.length > 0 ? boxData.outliers : undefined,
       xaxis: 'x',
       yaxis: 'y2',
       marker: { color: BOX_COLOR, size: 4 },
@@ -283,12 +282,12 @@ function DescriptiveCharts({ result, colName }: { result: DescriptiveResult; col
     // ── Invisible stat-point overlays for individual hover labels ────────────
     // One scatter marker per key stat on the box strip. opacity:0 = invisible,
     // size:14 = generous hit area. hovermode:'closest' ensures only one fires.
-    statPoint('Min',    boxData.min),
-    statPoint('Q1',     boxData.q1),
-    statPoint('Median', boxData.median),
-    statPoint('Mean',   result.summary.mean),
-    statPoint('Q3',     boxData.q3),
-    statPoint('Max',    boxData.max),
+    statPoint('Lower fence', boxData.whiskerLo),
+    statPoint('Q1',          boxData.q1),
+    statPoint('Median',      boxData.median),
+    statPoint('Mean',        result.summary.mean),
+    statPoint('Q3',          boxData.q3),
+    statPoint('Upper fence', boxData.whiskerHi),
     // Outliers — one scatter trace covering all outlier values
     ...(boxData.outliers.length > 0 ? [{
       type: 'scatter' as const,
@@ -296,7 +295,7 @@ function DescriptiveCharts({ result, colName }: { result: DescriptiveResult; col
       x: boxData.outliers,
       y: boxData.outliers.map(() => 0),
       xaxis: 'x', yaxis: 'y2',
-      marker: { opacity: 0, size: 10, color: BOX_COLOR },
+      marker: { opacity: 0.85, size: 10, color: '#f87171' },
       hovertemplate: 'Outlier: %{x:.4~g}<extra></extra>',
       showlegend: false,
     }] : []),

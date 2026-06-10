@@ -2,7 +2,7 @@ import type { NormalPDFParams, NormalPDFResult } from '../../../hooks/useNormalP
 
 interface NormalPDFNotebookProps {
   params: NormalPDFParams
-  result: NormalPDFResult
+  result: NormalPDFResult | null
 }
 
 function StatRow({ label, value }: { label: string; value: string }) {
@@ -16,7 +16,10 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 export default function NormalPDFNotebook({ params, result }: NormalPDFNotebookProps) {
   const { mean, std, n, alpha } = params
-  const { ciLow, ciHigh, se, zCritical } = result
+  const ciLow = result?.ciLow ?? null
+  const ciHigh = result?.ciHigh ?? null
+  const se = result?.se ?? null
+  const zCritical = result?.zCritical ?? null
   const ci = (1 - alpha) * 100
 
   return (
@@ -32,14 +35,14 @@ export default function NormalPDFNotebook({ params, result }: NormalPDFNotebookP
         <StatRow label="σ (std dev)"    value={std.toFixed(4)} />
         <StatRow label="n (sample size)" value={String(n)} />
         <StatRow label="α (significance)" value={alpha.toFixed(2)} />
-        <StatRow label="SE = σ/√n"      value={se.toFixed(4)} />
-        <StatRow label={`z (α/2 = ${(alpha/2).toFixed(3)})`} value={zCritical.toFixed(4)} />
-        <StatRow label={`CI lower (${ci.toFixed(0)}%)`} value={ciLow.toFixed(4)} />
-        <StatRow label={`CI upper (${ci.toFixed(0)}%)`} value={ciHigh.toFixed(4)} />
+        <StatRow label="SE = σ/√n"      value={se != null ? se.toFixed(4) : '—'} />
+        <StatRow label={`z (α/2 = ${(alpha/2).toFixed(3)})`} value={zCritical != null ? zCritical.toFixed(4) : '—'} />
+        <StatRow label={`CI lower (${ci.toFixed(0)}%)`} value={ciLow != null ? ciLow.toFixed(4) : '—'} />
+        <StatRow label={`CI upper (${ci.toFixed(0)}%)`} value={ciHigh != null ? ciHigh.toFixed(4) : '—'} />
         <div className="mt-2 pt-2 border-t border-[var(--color-border)]">
           <span className="text-xs text-[var(--color-text-muted)]">Width: </span>
           <span className="text-xs font-mono text-emerald-400">
-            {(ciHigh - ciLow).toFixed(4)}
+            {ciLow != null && ciHigh != null ? (ciHigh - ciLow).toFixed(4) : '—'}
           </span>
         </div>
       </div>
@@ -75,10 +78,10 @@ export default function NormalPDFNotebook({ params, result }: NormalPDFNotebookP
           CI = μ ± z(α/2) · σ / √n
         </p>
         <p className="text-xs font-mono text-indigo-300 leading-loose">
-          = {mean.toFixed(2)} ± {zCritical.toFixed(3)} · {std.toFixed(2)} / √{n}
+          = {mean.toFixed(2)} ± {zCritical != null ? zCritical.toFixed(3) : '—'} · {std.toFixed(2)} / √{n}
         </p>
         <p className="text-xs font-mono text-emerald-400 leading-loose">
-          = [ {ciLow.toFixed(4)}, {ciHigh.toFixed(4)} ]
+          = [ {ciLow != null ? ciLow.toFixed(4) : '—'}, {ciHigh != null ? ciHigh.toFixed(4) : '—'} ]
         </p>
       </div>
 
