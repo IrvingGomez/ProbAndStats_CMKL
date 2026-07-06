@@ -23,7 +23,6 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
           'plotly-vendor': ['react-plotly.js', 'plotly.js-basic-dist-min'],
-          'math-vendor': ['katex', 'mathlive'],
         },
       },
     },

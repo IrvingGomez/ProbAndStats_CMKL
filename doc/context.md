@@ -69,7 +69,9 @@ React Frontend                          Python Backend
 
 ### The "Zero Frontend Math" pattern:
 
-All statistical computation runs in the Python backend. The frontend performs no math — hooks fire a debounced API call (with AbortController to cancel stale requests) and render a loading skeleton while the request is in flight. When the response arrives, the result renders. This applies uniformly to both slider-driven and button-triggered features.
+All statistical computation runs in the Python backend. The frontend performs no authoritative math — hooks fire a debounced API call (with AbortController to cancel stale requests) and render a loading skeleton while the request is in flight. When the response arrives, the result renders. This applies uniformly to both slider-driven and button-triggered features.
+
+One exception: `frontend/src/math/` holds a hand-rolled, provisional-only preview (currently just the 12-distributions tab) so sliders render instantly instead of freezing during the debounce/round trip. It's marked `provisional: true`, is never trusted, and is always overwritten by the debounced backend call. `core/` remains the only verified math.
 
 ---
 

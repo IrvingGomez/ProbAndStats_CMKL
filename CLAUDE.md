@@ -68,7 +68,9 @@ User drags slider
   → React renders authoritative result
 ```
 
-**There is no JS approximation layer.** `core/` is the only place where statistics are computed.
+**There is no JS approximation layer for authoritative results.** `core/` is the only place where statistics are verified.
+
+One exception: `frontend/src/math/` holds a hand-rolled, provisional-only preview used by the 12-distributions tab (`useDistribution`) so slider drags render instantly instead of freezing for the debounce + round trip. Its output is marked `provisional: true` and is never trusted — the debounced backend call always follows and overwrites it. `core/` remains the only verified math.
 
 ### Backend Architecture
 

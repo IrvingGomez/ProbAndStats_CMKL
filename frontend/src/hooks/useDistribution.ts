@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { computeDistribution } from '../api/probability'
 import type { DistributionResponse } from '../api/probability'
+import { computeLocalDistribution } from '../math/localDistributions'
 
 // ─── Distribution catalogue ───────────────────────────────────────────────────
 
@@ -124,7 +125,9 @@ export const DISTRIBUTIONS: DistDef[] = [
 
 export type QueryOp = '<=' | '>=' | '=' | '<' | '>'
 
-export interface DistResult extends DistributionResponse {}
+export interface DistResult extends DistributionResponse {
+  provisional?: boolean
+}
 
 export interface DistParams {
   distName: string
@@ -152,6 +155,12 @@ export function useDistribution({ distName, paramValues, queryOp, queryK }: Dist
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
 
+    try {
+      setResult({ ...computeLocalDistribution(distName, paramValues, queryOp, queryK), provisional: true })
+    } catch {
+      // keep previous result; backend will still answer
+    }
+
     timerRef.current = setTimeout(() => {
       if (abortRef.current) abortRef.current.abort()
       const controller = new AbortController()
@@ -165,7 +174,7 @@ export function useDistribution({ distName, paramValues, queryOp, queryK }: Dist
         controller.signal,
       )
         .then((data) => {
-          setResult(data)
+          setResult({ ...data, provisional: false })
           setIsLoading(false)
         })
         .catch((err: unknown) => {

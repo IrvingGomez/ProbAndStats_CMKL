@@ -34,11 +34,99 @@ function opLabel(op: QueryOp, k: number, result: number): string {
   return `P(X ${op} ${k}) = ${result.toFixed(3)}`
 }
 
+function barColors(ks: number[], op: QueryOp, kVal: number): string[] {
+  return ks.map((k) => {
+    switch (op) {
+      case '<=': return k <= kVal ? '#6366f1' : '#334155'
+      case '>=': return k >= kVal ? '#6366f1' : '#334155'
+      case '=':  return k === kVal ? '#6366f1' : '#334155'
+      case '<':  return k < kVal  ? '#6366f1' : '#334155'
+      case '>':  return k > kVal  ? '#6366f1' : '#334155'
+      default:   return '#334155'
+    }
+  })
+}
+
+function buildDiscreteChart(result: DistResult, op: QueryOp, queryK: number, distName: string) {
+  const kVal = Math.round(queryK)
+  const ks = result.ks ?? []
+  const probs = result.probs ?? []
+  return {
+    traces: [{
+      x: ks,
+      y: probs,
+      type: 'bar' as const,
+      marker: { color: barColors(ks, op, kVal) },
+      name: 'P(X = k)',
+      hovertemplate: 'k=%{x}<br>P(X=k)=%{y:.4f}<extra></extra>',
+    }],
+    layout: {
+      ...LAYOUT_BASE,
+      title: { text: `${distName} — ${opLabel(op, kVal, result.queryResult)}`, font: { color: '#e5e7eb', size: 13 } },
+      xaxis: { ...LAYOUT_BASE.xaxis, title: 'X (number of occurrences)' },
+      yaxis: { ...LAYOUT_BASE.yaxis, title: 'P(X = k)' },
+    },
+  }
+}
+
+function buildContinuousChart(result: DistResult, op: QueryOp, queryK: number, distName: string) {
+  const xs = result.xs ?? []
+  const ys = result.ys ?? []
+
+  const shadeXs: number[] = []
+  const shadeYs: number[] = []
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i]
+    let match = false
+    switch (op) {
+      case '<=': case '<': match = x <= queryK; break
+      case '>=': case '>': match = x >= queryK; break
+      case '=': match = false; break
+    }
+    if (match) { shadeXs.push(x); shadeYs.push(ys[i]) }
+  }
+
+  return {
+    traces: [
+      ...(shadeXs.length > 0 ? [{
+        x: shadeXs, y: shadeYs,
+        type: 'scatter' as const,
+        mode: 'none' as const,
+        fill: 'tozeroy' as const,
+        fillcolor: 'rgba(99,102,241,0.25)',
+        name: opLabel(op, queryK, result.queryResult),
+        showlegend: true,
+        hoverinfo: 'skip' as const,
+      }] : []),
+      {
+        x: xs, y: ys,
+        type: 'scatter' as const,
+        mode: 'lines' as const,
+        name: 'PDF',
+        line: { color: '#6366f1', width: 2.5 },
+      },
+      {
+        x: [queryK, queryK],
+        y: [0, Math.max(0, ...ys.filter((y) => isFinite(y))) * 1.05],
+        type: 'scatter' as const,
+        mode: 'lines' as const,
+        name: `x = ${queryK}`,
+        line: { color: '#f59e0b', width: 1.5, dash: 'dash' as const },
+      },
+    ],
+    layout: {
+      ...LAYOUT_BASE,
+      title: { text: `${distName} — ${opLabel(op, queryK, result.queryResult)}`, font: { color: '#e5e7eb', size: 13 } },
+      xaxis: { ...LAYOUT_BASE.xaxis, title: 'x' },
+      yaxis: { ...LAYOUT_BASE.yaxis, title: 'Density' },
+    },
+  }
+}
+
 export default function CommonDistObservation({ distParams, result }: CommonDistObservationProps) {
   const { distName, queryOp, queryK, paramValues } = distParams
   const dist = DISTRIBUTIONS.find((d) => d.name === distName)
 
-  // ── Export handlers ──────────────────────────────────────────────────────
   const slug = distName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
   const handleExportPNG = useCallback(() => {
@@ -102,106 +190,10 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
 
   const { traces, layout } = useMemo(() => {
     if (!dist || !result) return { traces: [], layout: LAYOUT_BASE }
-
-    const kVal = Math.round(queryK)
-
-    if (dist.type === 'discrete') {
-      const { ks = [], probs = [] } = result
-
-      // Color bars: highlight bars that satisfy the query condition
-      const colors = ks.map((k) => {
-        let match = false
-        switch (queryOp) {
-          case '<=': match = k <= kVal; break
-          case '>=': match = k >= kVal; break
-          case '=':  match = k === kVal; break
-          case '<':  match = k < kVal; break
-          case '>':  match = k > kVal; break
-        }
-        return match ? '#6366f1' : '#334155'
-      })
-
-      return {
-        traces: [
-          {
-            x: ks,
-            y: probs,
-            type: 'bar' as const,
-            marker: { color: colors },
-            name: 'P(X = k)',
-            hovertemplate: 'k=%{x}<br>P(X=k)=%{y:.4f}<extra></extra>',
-          },
-        ],
-        layout: {
-          ...LAYOUT_BASE,
-          title: {
-            text: `${distName} — ${opLabel(queryOp, kVal, result.queryResult)}`,
-            font: { color: '#e5e7eb', size: 13 },
-          },
-          xaxis: { ...LAYOUT_BASE.xaxis, title: 'X (number of occurrences)' },
-          yaxis: { ...LAYOUT_BASE.yaxis, title: 'P(X = k)' },
-        },
-      }
-    } else {
-      const { xs = [], ys = [] } = result
-
-      // Shade area satisfying query condition
-      const shadeXs: number[] = []
-      const shadeYs: number[] = []
-      for (let i = 0; i < xs.length; i++) {
-        const x = xs[i]
-        let match = false
-        switch (queryOp) {
-          case '<=': case '<': match = x <= queryK; break
-          case '>=': case '>': match = x >= queryK; break
-          case '=': match = false; break
-        }
-        if (match) { shadeXs.push(x); shadeYs.push(ys[i]) }
-      }
-
-      return {
-        traces: [
-          // shade
-          ...(shadeXs.length > 0 ? [{
-            x: shadeXs, y: shadeYs,
-            type: 'scatter' as const,
-            mode: 'none' as const,
-            fill: 'tozeroy' as const,
-            fillcolor: 'rgba(99,102,241,0.25)',
-            name: opLabel(queryOp, queryK, result.queryResult),
-            showlegend: true,
-            hoverinfo: 'skip' as const,
-          }] : []),
-          // PDF curve
-          {
-            x: xs, y: ys,
-            type: 'scatter' as const,
-            mode: 'lines' as const,
-            name: 'PDF',
-            line: { color: '#6366f1', width: 2.5 },
-          },
-          // query line
-          {
-            x: [queryK, queryK],
-            y: [0, Math.max(0, ...ys.filter(y => isFinite(y))) * 1.05],
-            type: 'scatter' as const,
-            mode: 'lines' as const,
-            name: `x = ${queryK}`,
-            line: { color: '#f59e0b', width: 1.5, dash: 'dash' as const },
-          },
-        ],
-        layout: {
-          ...LAYOUT_BASE,
-          title: {
-            text: `${distName} — ${opLabel(queryOp, queryK, result.queryResult)}`,
-            font: { color: '#e5e7eb', size: 13 },
-          },
-          xaxis: { ...LAYOUT_BASE.xaxis, title: 'x' },
-          yaxis: { ...LAYOUT_BASE.yaxis, title: 'Density' },
-        },
-      }
-    }
-  }, [dist, result, distName, queryOp, queryK, paramValues])
+    return dist.type === 'discrete'
+      ? buildDiscreteChart(result, queryOp, queryK, distName)
+      : buildContinuousChart(result, queryOp, queryK, distName)
+  }, [dist, result, distName, queryOp, queryK])
 
   if (!result) {
     return (
@@ -220,7 +212,7 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
     <div className="flex flex-col gap-4">
 
       {/* Stat cards row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className={`grid grid-cols-3 gap-3 transition-opacity ${result.provisional ? 'opacity-80' : ''}`}>
         {statCards.map((card) => (
           <div
             key={card.label}
@@ -232,6 +224,9 @@ export default function CommonDistObservation({ distParams, result }: CommonDist
           >
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-text-muted)] mb-1">
               {card.label}
+              {card.highlight && result.provisional && (
+                <span className="ml-1 text-[var(--color-accent)]" title="Provisional — awaiting backend result">≈</span>
+              )}
             </p>
             <p className={`text-2xl font-bold tabular-nums ${
               card.highlight ? 'text-[var(--color-accent)]' : 'text-[var(--color-text)]'
