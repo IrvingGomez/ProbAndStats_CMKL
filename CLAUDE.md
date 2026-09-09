@@ -84,17 +84,20 @@ backend/
 │   │   └── approximation/         # stub
 │   ├── estimation/
 │   │   ├── descriptive.py         # + compute_histogram, compute_boxplot_data
-│   │   ├── graphical_analysis.py  # + compute_graphical_data (JSON output)
+│   │   ├── graphical_analysis.py  # + JSON compute block (histogram/PMF/ECDF, KDE, rug, normal, bands)
 │   │   └── inference/             # ci_*.py, pi_*.py, estimators, likelihood,
 │   │                              #   confidence_regions.py (+ compute_confidence_regions_data)
 │   ├── hypothesis_testing/        # was hypothesis_tests.py
+│   │                              #   __init__.py is byte-identical to the professor's file
+│   │                              #   + rejection_region.py (α, critical values, JSON output)
+│   │                              #   + tables.py (plot-free ANOVA; see pingouin note below)
 │   └── linear_regression/         # was linear_regression.py
 │
 ├── services/              # Orchestration (from controllers/)
 │   ├── descriptive.py     # Thin: validate → call core
 │   ├── inference.py       # Thick: picks distribution, composes CI/PI
 │   ├── hypothesis.py      # Medium: dispatch + group materialization
-│   └── regression.py      # Medium: parsing + delegation
+│   └── regression.py      # Medium: parsing + delegation (NOT BUILT YET)
 │
 ├── api/
 │   ├── routes/            # FastAPI endpoints (~10 lines each)
@@ -143,11 +146,11 @@ Panels are resizable (drag handles), collapsible, and persist widths to `localSt
 
 ```
 src/
-├── api/                             # NEW: backend fetch client
-│   ├── client.ts                    # Base fetch config, error handling
+├── api/                             # backend fetch client — one file per feature area.
+│                                    # There is no shared client.ts or types.ts: each file
+│                                    # declares its own BASE_URL and its own TS interfaces.
 │   ├── descriptive.ts               # Typed wrappers per endpoint
 │   ├── inference.ts
-│   └── types.ts                     # TypeScript types matching Pydantic schemas
 ├── features/
 │   ├── home/                        # Full-width landing page
 │   ├── data/                        # CSV upload + inspection
@@ -155,7 +158,8 @@ src/
 │   │   └── common/                  # 12 distributions (PMF/PDF/CDF)
 │   └── estimation/
 │       ├── descriptive/             # Stats tables, histograms, box plots
-│       └── inference/               # Normal PDF with CI visualization
+│       ├── inference/               # CI / PI / confidence regions
+│       └── graphical/               # Histogram / empirical PMF / ECDF + overlays
 ├── hooks/                           # Feature-local computation + API orchestration
 ├── components/                      # Reusable UI atoms
 ├── context/                         # Global state (DataContext)
@@ -170,7 +174,7 @@ Each feature folder follows the naming convention: `*Controls.tsx`, `*Observatio
 
 **Global (DataContext):** `src/context/DataContext.tsx` — `useReducer` managing dataset reference (session ID), filters, column classifications, and display precision. Access via `useData()`.
 
-**Feature-local:** Each tab's computation lives in a dedicated hook (`useNormalPDF`, `useDistribution`). Hooks fire debounced API calls and expose `{ result, isLoading, error }` — no local math.
+**Feature-local:** Each tab's computation lives in a dedicated hook (`useDistribution`, `useGraphicalTabState`). Hooks fire debounced API calls and expose `{ result, isLoading/isComputing, error }` — no local math.
 
 **API client:** `src/api/` contains typed fetch wrappers. Hooks call these instead of doing heavy math locally.
 
@@ -181,7 +185,7 @@ Each feature folder follows the naming convention: `*Controls.tsx`, `*Observatio
 | Hook | What it does |
 |------|-------------|
 | `useDistribution()` | Calls `/api/probability/compute`; returns `{ result, isLoading, error }` |
-| `useNormalPDF()` | Calls `/api/probability/normal-pdf`; returns `{ result, isLoading, error }` |
+| `useGraphicalTabState()` | Calls `/api/graphical/compute`; debounced live path for display toggles, explicit `run()` for estimator- and bootstrap-backed overlays |
 | `useResizablePanel()` | Drag logic for panel width |
 | `useContainerBreakpoint()` | Viewport-based auto-collapse |
 | `useSidebarKeyboard()` | Keyboard shortcuts for sidebar toggle |
@@ -220,10 +224,10 @@ Porting features from `ThotsakanStatistics/` (Gradio) to the React + FastAPI hyb
 | Data tab | Done (local parsing) | Done (upload route + session store) | Partial — frontend not yet wired to backend sessions |
 | 12 common distributions | Done (API) | Done | Complete |
 | Descriptive statistics | Done (API) | Done | Complete |
-| Normal PDF / CI | Done (API) | Done | Complete |
+| Normal PDF / CI | Retired (backend route kept) | Done | Superseded by Graphical Analysis |
 | Inference (CI/PI/regions) | Done (API) | Done | Complete |
-| Graphical analysis | Hook + API client exist, not wired into App | Done | Partial |
-| Hypothesis testing | Not started | Stub (`core/hypothesis_testing/` empty) | Not started |
+| Graphical analysis | Done (API) | Done | Complete |
+| Hypothesis testing | Done (API) | Done | Complete — 4 tests, plus α / critical values / verdict |
 | Linear regression | Not started | Stub (`core/linear_regression/` empty) | Not started |
 
 ## Documentation

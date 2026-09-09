@@ -82,16 +82,18 @@ This document tracks the phased migration from the original Gradio-based `Thotsa
 
 ### Deliverables
 
-- [ ] `services/graphical.py` — clean up from `controllers/estimation/graphical_controller.py`
-- [ ] `api/routes/graphical.py` — endpoints returning Plotly-compatible JSON (not matplotlib figures)
-- [ ] Convert `core/estimation/graphical_analysis.py` matplotlib output → Plotly JSON in the service layer
-- [ ] New React feature UI: `features/estimation/graphical/` — ECDF, histogram with KDE/normal/CI/PI overlays, empirical PMF
-- [ ] `frontend/src/api/graphical.ts`
+- [x] `services/graphical.py` — orchestration; reuses `services/inference.py::calculate_intervals` for CI/PI rather than re-porting `_run_hist_or_pmf`
+- [x] `api/routes/graphical.py` — `POST /api/graphical/compute`, returning Plotly-ready JSON
+- [x] `core/estimation/graphical_analysis.py` — JSON compute block extended (alpha-aware DKW band, estimator-driven normal overlay, rug, interval bands, bin control)
+- [x] New React feature UI: `features/estimation/graphical/` — histogram / empirical PMF / ECDF with KDE, rug, normal, DKW band, CI/PI interval strip
+- [x] `frontend/src/api/graphical.ts`
+- [x] `backend/tests/test_graphical_methods.py` + `backend/tests/api/test_graphical.py`
 
 ### Note on matplotlib → Plotly
-The `core/` graphical functions return matplotlib figures. Since the frontend uses Plotly, the service layer must convert. Options:
-1. Extract data from matplotlib figure objects → build Plotly traces (preferred)
-2. Or add parallel Plotly-native functions in services/ (if extraction is too fragile)
+Resolved by option 2. The matplotlib functions (`plot_histogram_with_overlays`, `plot_ecdf`) stay byte-identical to `ThotsakanStatistics/core/` for the professor to verify; the React path uses parallel JSON-serializable functions in the same file, under the `# ── JSON-serializable compute functions ──` marker. Same precedent as `descriptive.py` and `confidence_regions.py`.
+
+### Normal PDF retirement
+The `estimation ▸ graphical` sub-tab previously rendered the Normal PDF / CI demo. Graphical Analysis now owns that slot, and the `NormalPDF*` React panels plus `hooks/useNormalPDF.ts` were deleted. The backend `POST /api/probability/normal-pdf` route and `core/probability/common_distributions/normal_pdf.py` are kept — verified math, no maintenance cost, available if the demo is revived under the Probability tab.
 
 ### Source files to reference
 - `ThotsakanStatistics/controllers/estimation/graphical_controller.py`
@@ -102,25 +104,49 @@ The `core/` graphical functions return matplotlib figures. Since the frontend us
 
 ## Phase 4: Hypothesis Testing
 
-**Goal:** New React UI + backend API for all 5 test types. This is the first tab that doesn't exist in React at all yet.
+**Goal:** New React UI + backend API for all 4 test types. This is the first tab that doesn't exist in React at all yet.
 
 ### Deliverables
 
-- [ ] `services/hypothesis.py` — clean up from `controllers/hypothesis_controller.py`
-- [ ] `api/schemas/hypothesis.py` — request/response for each test type
-- [ ] `api/routes/hypothesis.py` — `POST /api/hypothesis/test` (dispatches by test type)
-- [ ] New React feature UI: `features/hypothesis/`
-  - `HypothesisControls.tsx` — test type selector, μ₀ input, group selection, alternative hypothesis
-  - `HypothesisObservation.tsx` — sampling distribution plot, p-value shading, mirror plots
-  - `HypothesisNotebook.tsx` — result table, test interpretation
-- [ ] `frontend/src/api/hypothesis.ts`
+- [x] `core/hypothesis_testing/rejection_region.py` — α, critical values, rejection region and p-value area as JSON
+- [x] `core/hypothesis_testing/tables.py` — plot-free ANOVA (see the pingouin note below)
+- [x] `services/hypothesis.py` — clean up from `controllers/hypothesis_controller.py`
+- [x] `api/schemas/hypothesis.py` — one request/response pair, per-test fields optional
+- [x] `api/routes/hypothesis.py` — `POST /api/hypothesis/test` (dispatches by test type)
+- [x] New React feature UI: `features/hypothesis/`
+  - `HypothesisControls.tsx` — test type selector, μ₀ input, group builders, alternative hypothesis, α slider
+  - `HypothesisObservation.tsx` — null distribution, rejection region, statistic marker, p-value shading
+  - `HypothesisNotebook.tsx` — hypotheses, verdict, group summary, raw result table
+- [x] `frontend/src/api/hypothesis.ts`
 
-### Test types to implement
+### Test types implemented
 1. One-sample Student's t-test
 2. Two-sample Student's t-test (with Welch correction option)
 3. Equal variance tests (Bartlett / Levene)
 4. One-way ANOVA
-5. Tukey HSD post-hoc (paired with ANOVA)
+
+There is no Tukey HSD. An earlier draft of this plan listed it as a fifth test, but it
+does not exist anywhere in `ThotsakanStatistics/` — ANOVA here is omnibus only.
+
+### Divergences from the Gradio app
+- **New:** a significance level, critical values, and an explicit "Reject H₀ / Fail to
+  reject H₀" verdict. The original reports only a statistic and a p-value.
+- **New:** the p-value, verdict and raw table stay hidden until the student asks, so the
+  rejection-region plot answers first (`doc/identity.md`: "Show, Don't Tell").
+- **Deferred:** the five matplotlib plots (bootstrap mean KDE, mirror plot, mean density,
+  variance density, ANOVA per-group KDE). Keeping bootstrap out of the request path is
+  what lets α be a live slider. When they return they need a seed — the original's
+  `np.random.choice` is unseeded and so non-reproducible.
+- **Scope:** dataset columns only. No manual summary-stat entry, no simulated samples.
+
+### pingouin version note
+The professor's app pins `pingouin==0.5.5`; this backend runs 0.6.x, where the result
+columns were renamed (`p-val` → `p_val`, `p-unc` → `p_unc`). `services/hypothesis.py`
+reads through a helper that accepts either spelling. One consequence is not cosmetic:
+`one_way_anova()` has no `include_graph` flag, always builds its figure, and that figure
+reads `p-unc` — so on any pingouin ≥ 0.6 it raises `KeyError` before returning. That is
+why `core/hypothesis_testing/tables.py` exists. **The professor's Gradio app has the same
+bug on a modern pingouin.** `__init__.py` was not modified.
 
 ### Source files to reference
 - `ThotsakanStatistics/controllers/hypothesis_controller.py`
