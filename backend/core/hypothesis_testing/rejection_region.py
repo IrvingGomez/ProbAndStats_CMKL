@@ -57,18 +57,34 @@ def _critical_values(rv, tail: str, alpha: float) -> list[float]:
     return [float(rv.ppf(alpha))]
 
 
+# How far past the null scale the observed statistic is allowed to stretch the
+# grid before it is simply left off-scale.
+_STAT_SPAN_LIMIT = 2.0
+
+
 def _grid(dist: str, rv, statistic: float, criticals: list[float], n_points: int):
     """
-    x grid guaranteed to contain the observed statistic, so its marker never
-    lands off-canvas however extreme the result is.
-    """
-    interesting = [abs(statistic)] + [abs(c) for c in criticals]
+    x grid sized to the null distribution, not to the observed statistic.
 
+    Critical values are always on-canvas: a small alpha pushes them past the
+    0.9995 quantile and the red edge is the whole point of the picture.
+
+    The statistic is different. A t of 52 against t(137) would stretch the grid
+    to +-62 and collapse the curve into an unreadable spike — which is exactly
+    what a strongly significant result looks like, and exactly when the student
+    most needs to see the shape. So it widens the grid only up to
+    ``_STAT_SPAN_LIMIT`` times the null scale; past that it is reported
+    off-scale and the frontend pins its marker to the axis edge.
+    """
     if dist == "t":
-        span = max(4.0, float(rv.ppf(0.9995)), max(interesting) * 1.2)
+        null_span = max(4.0, float(rv.ppf(0.9995)))
+        span = max(null_span, *(abs(c) for c in criticals))
+        span = max(span, min(abs(statistic) * 1.2, null_span * _STAT_SPAN_LIMIT))
         return np.linspace(-span, span, n_points)
 
-    upper = max(float(rv.ppf(0.999)), max(interesting) * 1.2, 1.0)
+    null_span = max(float(rv.ppf(0.999)), 1.0)
+    upper = max(null_span, *(abs(c) for c in criticals))
+    upper = max(upper, min(abs(statistic) * 1.2, null_span * _STAT_SPAN_LIMIT))
     return np.linspace(0.0, upper, n_points)
 
 
@@ -103,13 +119,20 @@ def _regions(tail: str, bounds: list[float], x_lo: float, x_hi: float) -> list[l
 
     `bounds` is what defines the edge of the shading: the critical value(s) for
     the rejection region, or the observed statistic for the p-value area.
+
+    An off-scale statistic collapses its interval to a zero-width sliver at the
+    edge rather than producing an inverted one — the right reading for a p-value
+    too small to draw.
     """
+    def clip(lo: float, hi: float) -> list[float]:
+        return [min(max(lo, x_lo), x_hi), min(max(hi, x_lo), x_hi)]
+
     if tail == TWO_SIDED:
         edge = abs(bounds[-1])
-        return [[x_lo, -edge], [edge, x_hi]]
+        return [clip(x_lo, -edge), clip(edge, x_hi)]
     if tail == GREATER:
-        return [[bounds[-1], x_hi]]
-    return [[x_lo, bounds[0]]]
+        return [clip(bounds[-1], x_hi)]
+    return [clip(x_lo, bounds[0])]
 
 
 def compute_rejection_region_data(
@@ -170,7 +193,9 @@ def compute_rejection_region_data(
         "x": x.tolist(),
         "pdf": pdf.tolist(),
         "y_max": y_max,
+        "x_range": [x_lo, x_hi],
         "statistic": statistic,
+        "statistic_offscale": not (x_lo <= statistic <= x_hi),
         "critical_values": criticals,
         "reject_region": _regions(tail, criticals, x_lo, x_hi),
         "p_area": _regions(tail, [statistic], x_lo, x_hi),

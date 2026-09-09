@@ -44,7 +44,11 @@ export interface RejectionRegionData {
   pdf: number[];
   /** Ceiling for the y axis: crops the spike a one-degree-of-freedom density has near zero. */
   y_max: number;
+  /** Axis domain: sized to the null distribution, not to an extreme statistic. */
+  x_range: [number, number];
   statistic: number;
+  /** True when the statistic lies past `x_range` and its marker must be pinned to the edge. */
+  statistic_offscale: boolean;
   critical_values: number[];
   /** Shaded because of α. */
   reject_region: number[][];

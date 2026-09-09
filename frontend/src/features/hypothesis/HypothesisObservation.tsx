@@ -15,7 +15,7 @@ const C_REJECT = 'rgba(239,68,68,0.28)';
 const C_P_AREA = 'rgba(59,130,246,0.45)';
 const C_CURVE = '#9ca3af';
 const C_CRIT = '#ef4444';
-const C_STAT = '#111827';
+const C_STAT = '#e5e7eb'; // near-white: the panel behind the plot is dark
 
 const AXIS = { gridcolor: 'rgba(128,128,128,0.15)', zeroline: false };
 const BASE_LAYOUT = {
@@ -32,6 +32,27 @@ const DIST_LABEL: Record<RejectionRegionData['dist'], string> = { t: 't', chi2: 
 /** Statistic symbol shown on the axis and the marker, per null distribution. */
 function statSymbol(dist: RejectionRegionData['dist']): string {
   return dist === 't' ? 't' : dist === 'chi2' ? 'χ²' : 'F';
+}
+
+/** Pin a value to the plotted domain so an off-scale marker still draws, at the edge. */
+function clampToRange(value: number, [lo, hi]: [number, number]): number {
+  return Math.min(Math.max(value, lo), hi);
+}
+
+/** Label for a statistic pinned to the edge, so the real value is never hidden. */
+function offscaleAnnotation(region: RejectionRegionData): any {
+  const beyondUpper = region.statistic > region.x_range[1];
+  return {
+    x: clampToRange(region.statistic, region.x_range),
+    y: region.y_max,
+    xanchor: beyondUpper ? 'right' : 'left',
+    yanchor: 'top',
+    text: `${statSymbol(region.dist)} = ${region.statistic.toFixed(3)} ${beyondUpper ? '→' : '←'}`,
+    showarrow: false,
+    font: { color: C_STAT, size: 11 },
+    bgcolor: 'rgba(0,0,0,0.35)',
+    borderpad: 3,
+  };
 }
 
 /** The slice of the curve lying inside [lo, hi], as a filled polygon. */
@@ -92,9 +113,12 @@ export default function HypothesisObservation({
       });
     });
 
-    // 5. The observed statistic, drawn last so it sits on top.
+    // 5. The observed statistic, drawn last so it sits on top. A statistic far
+    //    outside the null scale is pinned to the axis edge — the grid stays on
+    //    the curve's scale, and the annotation below carries the true value.
+    const at = clampToRange(region.statistic, region.x_range);
     out.push({
-      x: [region.statistic, region.statistic], y: [0, region.y_max],
+      x: [at, at], y: [0, region.y_max],
       type: 'scatter', mode: 'lines', line: { color: C_STAT, width: 2.5 },
       hovertemplate: `${statSymbol(region.dist)} = ${region.statistic.toFixed(4)}<extra></extra>`,
     });
@@ -139,8 +163,13 @@ export default function HypothesisObservation({
           layout={{
             ...BASE_LAYOUT,
             margin: { l: 45, r: 20, t: 10, b: 40 },
-            xaxis: { ...AXIS, title: { text: `${statSymbol(region.dist)} statistic`, standoff: 6 } },
+            xaxis: {
+              ...AXIS,
+              range: region.x_range,
+              title: { text: `${statSymbol(region.dist)} statistic`, standoff: 6 },
+            },
             yaxis: { ...AXIS, range: [0, region.y_max * 1.05], title: { text: 'density', standoff: 6 } },
+            annotations: region.statistic_offscale ? [offscaleAnnotation(region)] : [],
           }}
           config={CONFIG}
           style={{ width: '100%', height: '100%' }}

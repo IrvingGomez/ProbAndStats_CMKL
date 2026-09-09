@@ -74,11 +74,38 @@ def test_regions_are_clipped_to_the_plotted_grid():
         assert x_lo <= lo <= hi <= x_hi
 
 
-# ── grid always contains the statistic ────────────────────────────────
+# ── grid stays on the null scale ──────────────────────────────────────────────
 
-def test_grid_stretches_to_hold_an_extreme_statistic():
-    res = _region(statistic=99.0, p_value=1e-30)
-    assert res["x"][0] <= 99.0 <= res["x"][-1]
+def test_grid_holds_a_statistic_only_moderately_outside_the_null_scale():
+    res = _region(statistic=5.0, p_value=1e-4)
+    assert res["x"][0] <= 5.0 <= res["x"][-1]
+    assert res["statistic_offscale"] is False
+
+
+def test_extreme_statistic_is_left_offscale_so_the_curve_stays_readable():
+    """
+    A t of 52 against t(24) used to stretch the grid to +-62 and flatten the
+    density into an invisible spike. The grid now stays on the null scale and
+    the statistic is flagged for the frontend to pin at the axis edge.
+    """
+    res = _region(statistic=52.0, p_value=1e-30)
+    assert res["x"][-1] < 12.0
+    assert res["statistic_offscale"] is True
+    assert res["statistic"] == 52.0  # reported truthfully, never clamped
+    assert res["x_range"] == [res["x"][0], res["x"][-1]]
+
+
+def test_offscale_statistic_gives_a_degenerate_p_area_not_an_inverted_one():
+    res = _region(statistic=52.0, p_value=1e-30)
+    x_lo, x_hi = res["x_range"]
+    for lo, hi in res["p_area"]:
+        assert x_lo <= lo <= hi <= x_hi
+
+
+def test_critical_values_stay_on_canvas_at_a_tiny_alpha():
+    res = _region(alpha=1e-6)
+    assert res["x"][0] <= min(res["critical_values"])
+    assert max(res["critical_values"]) <= res["x"][-1]
 
 
 def test_chi2_and_f_grids_start_at_zero():

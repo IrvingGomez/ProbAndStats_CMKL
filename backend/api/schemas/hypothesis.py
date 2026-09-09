@@ -42,7 +42,9 @@ class RejectionRegionData(BaseModel):
     x: List[float]
     pdf: List[float]
     y_max: float
+    x_range: List[float]
     statistic: float
+    statistic_offscale: bool
     critical_values: List[float]
     reject_region: List[List[float]]
     p_area: List[List[float]]
