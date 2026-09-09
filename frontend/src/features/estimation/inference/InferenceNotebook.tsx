@@ -42,6 +42,7 @@ function ResultTable({ title, components, precision }: { title: string, componen
               <th className="px-3 py-2 font-medium text-[var(--color-text-muted)]">Statistic</th>
               <th className="px-3 py-2 font-medium text-[var(--color-text-muted)] text-right">Lower Bound</th>
               <th className="px-3 py-2 font-medium text-[var(--color-text-muted)] text-right">Upper Bound</th>
+              <th className="px-3 py-2 font-medium text-[var(--color-text-muted)] text-center">Method</th>
               <th className="px-3 py-2 font-medium text-[var(--color-text-muted)] text-center">Interval Type</th>
             </tr>
           </thead>
@@ -55,6 +56,7 @@ function ResultTable({ title, components, precision }: { title: string, componen
                 </td>
                 <td className="px-3 py-2 font-mono text-right text-emerald-600 dark:text-emerald-400">{c['Lower'] !== null && c['Lower'] !== undefined ? Number(c['Lower']).toFixed(precision) : '-'}</td>
                 <td className="px-3 py-2 font-mono text-right text-emerald-600 dark:text-emerald-400">{c['Upper'] !== null && c['Upper'] !== undefined ? Number(c['Upper']).toFixed(precision) : '-'}</td>
+                <td className="px-3 py-2 text-center text-[var(--color-text-muted)]">{c['Method'] ?? '-'}</td>
                 <td className="px-3 py-2 text-center text-[var(--color-text-muted)]">{c['Interval Type']}</td>
               </tr>
             ))}
@@ -71,16 +73,16 @@ function RegionSummary({ regionResult, precision }: { regionResult: ConfidenceRe
     <div className="bg-[var(--color-bg-input)] rounded-lg p-4 border border-[var(--color-border-md)] text-sm">
        <p className="font-semibold mb-2">Confidence Regions Computed</p>
        <ul className="list-disc pl-5 space-y-1 text-[var(--color-text-muted)]">
-         <li><strong>Type:</strong> Profile Likelihood Ratio</li>
+         <li><strong>Type:</strong> Joint relative likelihood over (μ, σ), χ² calibrated (2 df)</li>
          <li><strong>Resolution:</strong> {regionResult.z_matrix.length}x{regionResult.z_matrix[0]?.length || 0} grid</li>
-         <li><strong>Levels:</strong> {regionResult.probs?.join(', ')}</li>
+         <li><strong>Coverage levels:</strong> {[...(regionResult.probs ?? [])].sort((a, b) => a - b).join(', ')}</li>
          <li><strong>Maximum Likelihood Estimates:</strong>
             <div className="font-mono mt-1 text-[var(--color-text)]">
               μ = {regionResult.mu_hat.toFixed(precision)}, σ = {regionResult.sigma_hat.toFixed(precision)}
             </div>
          </li>
        </ul>
-       <p className="mt-3 text-xs italic">See the Observation panel for the 2D contour plot.</p>
+       <p className="mt-3 text-xs italic">See the Observation panel for the contour plot. The dashed box is the pair of marginal CIs, not the joint region.</p>
     </div>
   );
 }
@@ -114,7 +116,7 @@ export default function InferenceNotebook({ ciResult, piResult, regionResult, pr
         <Section title="Confidence Intervals">
            <ResultTable title="Mean Estimation" components={ciComponents.filter(c => String(c.Statistic).toLowerCase().includes('mean'))} precision={precision} />
            <ResultTable title="Median Estimation" components={ciComponents.filter(c => String(c.Statistic).toLowerCase().includes('median'))} precision={precision} />
-           <ResultTable title="Dispersion Estimation" components={ciComponents.filter(c => String(c.Statistic).toLowerCase().includes('deviation') || String(c.Statistic).toLowerCase().includes('sigma'))} precision={precision} />
+           <ResultTable title="Deviation Estimation" components={ciComponents.filter(c => String(c.Statistic).toLowerCase().includes('deviation') || String(c.Statistic).toLowerCase().includes('sigma'))} precision={precision} />
         </Section>
       )}
 

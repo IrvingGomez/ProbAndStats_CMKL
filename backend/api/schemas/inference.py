@@ -33,8 +33,20 @@ class ConfidenceRegionsParams(InferenceParams):
     add_ci_box: bool = True
     mu_ci_source: str = "Mean-based CI"
 
+class PointEstimates(BaseModel):
+    mean: float
+    median: float
+    deviation: float
+
+class HistogramData(BaseModel):
+    binEdges: List[float]
+    counts: List[int]
+
 class IntervalsResponse(BaseModel):
-    table: str # JSON string of DataFrame via to_json(orient="records")
+    table: str # JSON string of DataFrame via to_json(orient="records"); rows carry a Method column
+    n: int
+    point_estimates: PointEstimates
+    histogram: HistogramData
 
 class ConfidenceRegionsResponse(BaseModel):
     z_matrix: List[List[float]]
@@ -42,7 +54,7 @@ class ConfidenceRegionsResponse(BaseModel):
     sigma_grid: List[float]
     mu_hat: float
     sigma_hat: float
-    mean_ci: List[float]
+    mu_ci: List[float]
     sigma_ci: List[float]
     probs: List[float]
     levels: List[float]

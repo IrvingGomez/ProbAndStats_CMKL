@@ -37,7 +37,10 @@ export interface ConfidenceRegionsParams extends InferenceParams {
 }
 
 export interface IntervalsResponse {
-  table: string; // JSON string
+  table: string; // JSON string; each record also carries a `Method` field
+  n: number;
+  point_estimates: { mean: number; median: number; deviation: number };
+  histogram: { binEdges: number[]; counts: number[] };
 }
 
 export interface ConfidenceRegionsResponse {
@@ -46,7 +49,7 @@ export interface ConfidenceRegionsResponse {
   sigma_grid: number[];
   mu_hat: number;
   sigma_hat: number;
-  mean_ci: number[];
+  mu_ci: number[];
   sigma_ci: number[];
   probs: number[];
   levels: number[];

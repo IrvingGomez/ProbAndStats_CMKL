@@ -69,12 +69,8 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
   
   const [estimatorOpts, setEstimatorOpts] = useState<EstimatorOptions>({ mean_estimators: ['Sample Mean'], deviation_estimators: ['Deviation (1 ddof)'] });
   
-  const [meanEst, setMeanEst] = useState('Sample Mean');
-  const [medianEst, setMedianEst] = useState('Sample Median');
+  // ponytail: mean/median estimators fixed — only Sample Mean / Sample Median have verified formulas
   const [sigmaEst, setSigmaEst] = useState('Deviation (1 ddof)');
-  const [trimStr, setTrimStr] = useState('');
-  const [winsorStr, setWinsorStr] = useState('');
-  const [weightsCol, setWeightsCol] = useState('');
   
   const [bootstrapMean, setBootstrapMean] = useState(false);
   const [bootstrapMedian, setBootstrapMedian] = useState(false);
@@ -100,7 +96,6 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
       inferenceApi.getEstimators({ session_id: state.sessionId, column })
         .then(opts => {
           setEstimatorOpts(opts);
-          if (!opts.mean_estimators.includes(meanEst)) setMeanEst(opts.mean_estimators[0] || 'Sample Mean');
           if (!opts.deviation_estimators.includes(sigmaEst)) setSigmaEst(opts.deviation_estimators[0] || 'Deviation (1 ddof)');
         }).catch(() => console.error("Failed to load estimators"));
     }
@@ -115,18 +110,16 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
     const samples = parseInt(samplesStr, 10);
     if (isNaN(samples) || samples <= 0) { setError('Bootstrap samples must be a positive integer'); return; }
     
-    const trim = trimStr ? parseFloat(trimStr) : null;
-    
     onRun({
       column,
       estimationType,
       alpha,
-      mean_estimator: meanEst,
-      median_estimator: medianEst,
+      mean_estimator: 'Sample Mean',
+      median_estimator: 'Sample Median',
       sigma_estimator: sigmaEst,
-      trim_param: trim,
-      winsor_limits: winsorStr || null,
-      weights_column: weightsCol || null,
+      trim_param: null,
+      winsor_limits: null,
+      weights_column: null,
       bootstrap_mean: bootstrapMean,
       bootstrap_median: bootstrapMedian,
       bootstrap_deviation: bootstrapDeviation,
@@ -138,7 +131,7 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
       add_ci_box: addCiBox,
       mu_ci_source: muCiSource
     });
-  }, [column, estimationType, alphaStr, meanEst, medianEst, sigmaEst, trimStr, winsorStr, weightsCol, bootstrapMean, bootstrapMedian, bootstrapDeviation, bootstrapPi, samplesStr, crProbs, crEpsMu, crEpsSigma, addCiBox, muCiSource, onRun]);
+  }, [column, estimationType, alphaStr, sigmaEst, bootstrapMean, bootstrapMedian, bootstrapDeviation, bootstrapPi, samplesStr, crProbs, crEpsMu, crEpsSigma, addCiBox, muCiSource, onRun]);
 
   // Initial and reactive run when column changes
   useEffect(() => {
@@ -150,12 +143,7 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
     setColumn(state.numericCols[0] ?? '');
     setEstimationType('Confidence and Prediction Intervals');
     setAlphaStr('0.05');
-    setMeanEst('Sample Mean');
-    setMedianEst('Sample Median');
     setSigmaEst('Deviation (1 ddof)');
-    setTrimStr('');
-    setWinsorStr('');
-    setWeightsCol('');
     setBootstrapMean(false);
     setBootstrapMedian(false);
     setBootstrapDeviation(false);
@@ -192,11 +180,11 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
       <Divider />
       
       <SectionLabel>Parameters</SectionLabel>
-      <TextInput label="Alpha (Family-wise Error Rate)" value={alphaStr} onChange={setAlphaStr} placeholder="0.05" hint="For confidence intervals" />
+      <TextInput label="Significance level α" value={alphaStr} onChange={setAlphaStr} placeholder="0.05" hint="Each interval covers at 1−α individually — no multiplicity correction across rows." />
 
       {isRegions && (
         <Accordion title="Confidence Region Settings" isOpen={advancedOpen} onToggle={() => setAdvancedOpen(!advancedOpen)}>
-          <TextInput label="Confidence Levels (Probabilities)" value={crProbs} onChange={setCrProbs} placeholder="0.1, 0.5, 0.75, 0.89, 0.95" />
+          <TextInput label="Coverage levels" value={crProbs} onChange={setCrProbs} placeholder="0.1, 0.5, 0.75, 0.89, 0.95" />
           <TextInput label="Padding μ (left, right)" value={crEpsMu} onChange={setCrEpsMu} placeholder="0.1, 0.1" />
           <TextInput label="Padding σ (left, right)" value={crEpsSigma} onChange={setCrEpsSigma} placeholder="0.05, 0.05" />
           <Toggle label="Add CI Bounding Box" value={addCiBox} onChange={setAddCiBox} />
@@ -207,20 +195,11 @@ export default function InferenceControls({ onRun, onReset, isComputing }: { onR
       )}
 
       <Accordion title="Estimators" isOpen={estimatorsOpen} onToggle={() => setEstimatorsOpen(!estimatorsOpen)}>
-        <SelectField label="Mean Estimator" value={meanEst} onChange={setMeanEst} options={estimatorOpts.mean_estimators} />
-        {['Trimmed Mean', 'Winsorized Mean'].includes(meanEst) && (
-           <div className="pl-3 border-l-2 border-[var(--color-border-md)] mb-3">
-             {meanEst === 'Trimmed Mean' && <TextInput label="Trim Proportion (α)" value={trimStr} onChange={setTrimStr} placeholder="0.1" />}
-             {meanEst === 'Winsorized Mean' && <TextInput label="Winsor Limits (lo, hi)" value={winsorStr} onChange={setWinsorStr} placeholder="0.1, 0.1" />}
-           </div>
-        )}
-        {meanEst === 'Weighted Mean' && (
-          <div className="pl-3 border-l-2 border-[var(--color-border-md)] mb-3">
-            <SelectField label="Weights Column" value={weightsCol} onChange={setWeightsCol} options={['', ...state.numericCols.filter(c => c !== column)]} />
-          </div>
-        )}
-        <SelectField label="Median Estimator" value={medianEst} onChange={setMedianEst} options={['Sample Median', 'Harrell-Davis', 'Type 1', 'Type 2', 'Type 3', 'Type 4', 'Type 5', 'Type 6', 'Type 7', 'Type 8', 'Type 9']} />
-        <SelectField label="Deviation (Scale) Estimator" value={sigmaEst} onChange={setSigmaEst} options={estimatorOpts.deviation_estimators} />
+        <SelectField label="Deviation Estimator" value={sigmaEst} onChange={setSigmaEst} options={estimatorOpts.deviation_estimators} />
+        <p className="text-[10px] text-[var(--color-text-muted)]">
+          Feeds every analytic interval — mean, median and deviation.
+          Mean: Sample Mean · Median: Sample Median (fixed).
+        </p>
       </Accordion>
 
       {!isRegions && (

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 import json
 import pandas as pd
-from api.deps import get_session_data
+from api.deps import apply_filters, get_session_data
 from api.schemas.inference import (
     EstimatorRequest, EstimatorOptions, 
     InferenceParams, IntervalsResponse,
@@ -10,14 +10,6 @@ from api.schemas.inference import (
 from services.inference import get_estimators, calculate_intervals, calculate_regions
 
 router = APIRouter(prefix="/api/inference", tags=["inference"])
-
-def _apply_filters(df: pd.DataFrame, filters: dict | None) -> pd.DataFrame:
-    if filters:
-        for col, allowed in filters.items():
-            if col in df.columns and allowed:
-                df = df[df[col].astype(str).isin(allowed)]
-    return df
-
 
 @router.post("/estimators", response_model=EstimatorOptions)
 def get_available_estimators(req: EstimatorRequest, df: pd.DataFrame = Depends(get_session_data)):
@@ -31,7 +23,7 @@ def get_available_estimators(req: EstimatorRequest, df: pd.DataFrame = Depends(g
 def compute_ci(params: InferenceParams, df: pd.DataFrame = Depends(get_session_data)):
     if params.column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column {params.column} not found")
-    df = _apply_filters(df, params.filters)
+    df = apply_filters(df, params.filters)
     data = df[params.column].dropna()
     
     weights = None
@@ -39,8 +31,8 @@ def compute_ci(params: InferenceParams, df: pd.DataFrame = Depends(get_session_d
         weights = df[params.weights_column]
     
     try:
-        ci_table, _, _, _, _ = calculate_intervals(data, params, weights)
-        return IntervalsResponse(table=ci_table.to_json(orient="records"))
+        ci_table, _, _, _, _, ctx = calculate_intervals(data, params, weights)
+        return IntervalsResponse(table=ci_table.to_json(orient="records"), **ctx)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -48,7 +40,7 @@ def compute_ci(params: InferenceParams, df: pd.DataFrame = Depends(get_session_d
 def compute_pi(params: InferenceParams, df: pd.DataFrame = Depends(get_session_data)):
     if params.column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column {params.column} not found")
-    df = _apply_filters(df, params.filters)
+    df = apply_filters(df, params.filters)
     data = df[params.column].dropna()
     
     weights = None
@@ -56,8 +48,8 @@ def compute_pi(params: InferenceParams, df: pd.DataFrame = Depends(get_session_d
         weights = df[params.weights_column]
     
     try:
-        _, pi_table, _, _, _ = calculate_intervals(data, params, weights)
-        return IntervalsResponse(table=pi_table.to_json(orient="records"))
+        _, pi_table, _, _, _, ctx = calculate_intervals(data, params, weights)
+        return IntervalsResponse(table=pi_table.to_json(orient="records"), **ctx)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -65,7 +57,7 @@ def compute_pi(params: InferenceParams, df: pd.DataFrame = Depends(get_session_d
 def compute_regions(params: ConfidenceRegionsParams, df: pd.DataFrame = Depends(get_session_data)):
     if params.column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column {params.column} not found")
-    df = _apply_filters(df, params.filters)
+    df = apply_filters(df, params.filters)
     data = df[params.column].dropna()
     
     weights = None

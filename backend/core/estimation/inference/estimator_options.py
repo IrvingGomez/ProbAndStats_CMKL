@@ -15,7 +15,6 @@ ALL_MEAN_ESTIMATORS = [
 
 ALL_DEVIATION_ESTIMATORS = [
     "Deviation (1 ddof)",
-    "Range (bias corrected)",
     "IQR (bias corrected)",
     "MAD (bias corrected)",
     "AAD (bias corrected)",
