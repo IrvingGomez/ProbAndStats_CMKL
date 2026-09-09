@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import data, descriptive, inference, graphical, probability
+from api.routes import data, descriptive, inference, graphical, hypothesis, probability
 from sessions.store import clean_expired_sessions
 
 
@@ -38,6 +38,7 @@ app.include_router(data.router, prefix="/api/data", tags=["data"])
 app.include_router(descriptive.router, prefix="/api/descriptive", tags=["descriptive"])
 app.include_router(inference.router) # inference router defines its own prefix /api/inference
 app.include_router(graphical.router) # graphical router defines its own prefix /api/graphical
+app.include_router(hypothesis.router) # hypothesis router defines its own prefix /api/hypothesis
 app.include_router(probability.router, prefix="/api/probability", tags=["probability"])
 
 @app.get("/api/health")

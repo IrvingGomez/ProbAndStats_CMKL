@@ -42,6 +42,15 @@ const InferenceObservationSlot = lazy(() =>
 const InferenceNotebookSlot = lazy(() =>
   import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.NotebookSlot })))
 
+// Lazy-loaded Hypothesis Testing panels
+import { useHypothesisTabState } from './features/hypothesis/useHypothesisTabState'
+const HypothesisControlsSlot = lazy(() =>
+  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ControlsSlot })))
+const HypothesisObservationSlot = lazy(() =>
+  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.ObservationSlot })))
+const HypothesisNotebookSlot = lazy(() =>
+  import('./features/hypothesis/HypothesisTab').then((m) => ({ default: m.NotebookSlot })))
+
 // Lazy-loaded Graphical Analysis panels
 import { useGraphicalTabState } from './features/estimation/graphical/useGraphicalTabState'
 const GraphicalControlsSlot = lazy(() =>
@@ -174,6 +183,9 @@ export default function App() {
 
   // ── Graphical Analysis state ─────────────────────────────────────────────
   const graphical = useGraphicalTabState()
+
+  // ── Hypothesis Testing state ─────────────────────────────────────────────
+  const hypothesis = useHypothesisTabState()
 
   // ── Slot content resolver ──────────────────────────────────────────────────
   let controls: React.ReactNode
@@ -323,6 +335,42 @@ export default function App() {
         </Suspense>
       )
     }
+
+  // ── Hypothesis Testing tab ─────────────────────────────────────────────────
+  } else if (activeTab === 'hypothesis') {
+    footerDataset = 'Hypothesis Testing'
+    controls = (
+      <Suspense fallback={<ChartFallback />}>
+        <HypothesisControlsSlot
+          onRun={hypothesis.handleRun}
+          onLiveChange={hypothesis.handleLiveChange}
+          onReset={hypothesis.handleReset}
+          isComputing={hypothesis.isComputing}
+          error={hypothesis.error}
+        />
+      </Suspense>
+    )
+    observation = (
+      <Suspense fallback={<ChartFallback />}>
+        <HypothesisObservationSlot
+          result={hypothesis.result}
+          hasData={hypothesis.hasData}
+          isComputing={hypothesis.isComputing}
+          revealed={hypothesis.revealed}
+          onReveal={hypothesis.onReveal}
+        />
+      </Suspense>
+    )
+    notebook = (
+      <Suspense fallback={<ChartFallback />}>
+        <HypothesisNotebookSlot
+          result={hypothesis.result}
+          precision={hypothesis.precision}
+          revealed={hypothesis.revealed}
+          onReveal={hypothesis.onReveal}
+        />
+      </Suspense>
+    )
 
   // ── Other tabs ─────────────────────────────────────────────────────────────
   } else if (activeTab !== 'home') {
