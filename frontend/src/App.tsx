@@ -8,12 +8,6 @@ import Footer from './layout/Footer'
 import HomeTab from './features/home/HomeTab'
 import DataTab from './features/data/DataTab'
 
-// ── Estimation: Normal PDF (Graphical Analysis sub-tab) ───────────────────
-import NormalPDFControls, { DEFAULT_PARAMS } from './features/estimation/inference/NormalPDFControls'
-import NormalPDFNotebook from './features/estimation/inference/NormalPDFNotebook'
-import { useNormalPDF } from './hooks/useNormalPDF'
-import type { NormalPDFParams } from './hooks/useNormalPDF'
-
 // ── Probability: Common Distributions ────────────────────────────────────────
 import CommonDistControls from './features/probability/common/CommonDistControls'
 import CommonDistNotebook from './features/probability/common/CommonDistNotebook'
@@ -24,7 +18,6 @@ import {
 } from './hooks/useDistribution'
 
 // Lazy-loaded heavy chart components
-const NormalPDFObservation = lazy(() => import('./features/estimation/inference/NormalPDFObservation'))
 const CommonDistObservation = lazy(() => import('./features/probability/common/CommonDistObservation'))
 
 // ─── Navigation config ────────────────────────────────────────────────────────
@@ -48,6 +41,15 @@ const InferenceObservationSlot = lazy(() =>
   import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.ObservationSlot })))
 const InferenceNotebookSlot = lazy(() =>
   import('./features/estimation/inference/InferenceTab').then((m) => ({ default: m.NotebookSlot })))
+
+// Lazy-loaded Graphical Analysis panels
+import { useGraphicalTabState } from './features/estimation/graphical/useGraphicalTabState'
+const GraphicalControlsSlot = lazy(() =>
+  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ControlsSlot })))
+const GraphicalObservationSlot = lazy(() =>
+  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.ObservationSlot })))
+const GraphicalNotebookSlot = lazy(() =>
+  import('./features/estimation/graphical/GraphicalTab').then((m) => ({ default: m.NotebookSlot })))
 
 const SUB_TABS: Partial<Record<TabId, SubTab[]>> = {
   probability: [
@@ -133,11 +135,6 @@ export default function App() {
   const activeSubTab = subTabMap[activeTab] ?? null
   const subTabs = SUB_TABS[activeTab]
 
-  // ── Estimation / Normal PDF state ──────────────────────────────────────────
-  const [normalParams, setNormalParams] = useState<NormalPDFParams>(DEFAULT_PARAMS)
-  const [normalMode, setNormalMode] = useState<'pdf' | 'cdf'>('pdf')
-  const { result: normalResult } = useNormalPDF(activeTab === 'estimation' ? normalParams : null)
-
   // ── Probability / Common Distributions state ───────────────────────────────
   const firstDiscrete = DISTRIBUTIONS.find((d) => d.type === 'discrete')!
   const [probModelType, setProbModelType] = useState<'discrete' | 'continuous'>('discrete')
@@ -174,6 +171,9 @@ export default function App() {
 
   // ── Statistical Inference state ──────────────────────────────────────────
   const inference = useInferenceTabState()
+
+  // ── Graphical Analysis state ─────────────────────────────────────────────
+  const graphical = useGraphicalTabState()
 
   // ── Slot content resolver ──────────────────────────────────────────────────
   let controls: React.ReactNode
@@ -227,22 +227,42 @@ export default function App() {
   // ── Estimation tab ─────────────────────────────────────────────────────────
   } else if (activeTab === 'estimation') {
     if (activeSubTab === 'graphical') {
-      footerDataset = 'Normal Distribution (CI)'
+      footerDataset = 'Graphical Analysis'
       controls = (
-        <NormalPDFControls
-          params={normalParams}
-          mode={normalMode}
-          onParamsChange={(p) => setNormalParams((prev) => ({ ...prev, ...p }))}
-          onModeChange={setNormalMode}
-          onReset={() => { setNormalParams(DEFAULT_PARAMS); setNormalMode('pdf') }}
-        />
+        <Suspense fallback={<ChartFallback />}>
+          <GraphicalControlsSlot
+            onLive={graphical.applyLive}
+            onRun={graphical.run}
+            onReset={graphical.reset}
+            isComputing={graphical.isComputing}
+            isDirty={graphical.isDirty}
+          />
+        </Suspense>
       )
       observation = (
         <Suspense fallback={<ChartFallback />}>
-          <NormalPDFObservation params={normalParams} result={normalResult} mode={normalMode} />
+          <GraphicalObservationSlot
+            result={graphical.result}
+            column={graphical.column}
+            graphType={graphical.graphType}
+            hasData={graphical.hasData}
+            isComputing={graphical.isComputing}
+            staleOverlays={graphical.staleOverlays}
+            error={graphical.error}
+          />
         </Suspense>
       )
-      notebook = <NormalPDFNotebook params={normalParams} result={normalResult} />
+      notebook = (
+        <Suspense fallback={<ChartFallback />}>
+          <GraphicalNotebookSlot
+            result={graphical.result}
+            column={graphical.column}
+            graphType={graphical.graphType}
+            precision={graphical.precision}
+            staleOverlays={graphical.staleOverlays}
+          />
+        </Suspense>
+      )
     } else if (activeSubTab === 'inference') {
       footerDataset = 'Statistical Inference'
       controls = (
@@ -302,10 +322,6 @@ export default function App() {
           />
         </Suspense>
       )
-    } else {
-      controls    = <ComingSoon label="Graphical Analysis" />
-      observation = <ComingSoon label="Graphical Analysis" />
-      notebook    = <ComingSoon label="Graphical Analysis" />
     }
 
   // ── Other tabs ─────────────────────────────────────────────────────────────

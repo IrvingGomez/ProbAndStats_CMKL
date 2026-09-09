@@ -17,3 +17,12 @@ async def get_session_data(x_session_id: Annotated[str | None, Header()] = None)
         )
     
     return data
+
+
+def apply_filters(df: pd.DataFrame, filters: dict | None) -> pd.DataFrame:
+    """Restrict rows to the Data tab's active categorical filters."""
+    if filters:
+        for col, allowed in filters.items():
+            if col in df.columns and allowed:
+                df = df[df[col].astype(str).isin(allowed)]
+    return df
